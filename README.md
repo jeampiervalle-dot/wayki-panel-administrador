@@ -6,6 +6,12 @@ Panel web para revisar solicitudes de registro enviadas desde la app móvil, apr
 - **Estado actual:** conectado a un backend REST (ver `.env`). La sesión se guarda en `localStorage`.
 - **Verificación:** DNI + nombre ingresados manualmente (sin autocompletado RENIEC). La cuenta se activa solo tras aprobación del admin, revisada en horario laboral (no 24/7).
 
+## Documentación
+
+- **[docs/COMO-FUNCIONA.md](docs/COMO-FUNCIONA.md)** — qué hace cada pantalla,
+  cómo se conecta al backend, contrato de endpoints, limitaciones conocidas y
+  cómo extender el panel.
+
 ## Ejecutar
 
 ```bash
