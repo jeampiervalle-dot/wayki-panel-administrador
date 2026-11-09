@@ -1,6 +1,11 @@
 import { api } from './client'
 import type { Linea, PuntoControl, Unidad, Usuario } from '../types'
 
+// ============================================================
+// AQUÍ VA LA API DE CONEXIÓN (endpoints del backend)
+// Cada método llama a una ruta de tu API en la VPS.
+// Para cambiar/agregar endpoints, edítalos aquí.
+// ============================================================
 export const backend = {
   estado: () => api<any>('/estado'),
   lineas: () => api<Linea[]>('/lineas'),
