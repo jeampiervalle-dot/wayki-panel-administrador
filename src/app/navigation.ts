@@ -1,1 +1,10 @@
-export type View = 'inicio' | 'mapa' | 'rutas' | 'cuentas' | 'unidades' | 'portal'
+export type View =
+  | 'inicio'
+  | 'mapa'
+  | 'solicitudes'
+  | 'cuentas'
+  | 'rutas'
+  | 'unidades'
+  | 'mis-choferes'
+  | 'combis'
+  | 'ajustes'

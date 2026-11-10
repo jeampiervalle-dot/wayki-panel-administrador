@@ -17,7 +17,7 @@ import 'leaflet/dist/leaflet.css'
 import { config } from '../../config'
 import type { Linea, PuntoControl } from '../../domain/models'
 import { useMapa } from '../../application/useMapa'
-import { useDependencies } from '../../app/providers'
+import { useDependencies, useSession } from '../../app/providers'
 
 const DEFAULT_CENTER: [number, number] = [-16.409, -71.537]
 const PUNTOS_DESTACADOS = 6
@@ -61,8 +61,13 @@ function puntosDestacados(puntos: PuntoControl[]): PuntoControl[] {
 
 export default function MapPage() {
   const { lineas: lineasRepo } = useDependencies()
-  const { lineas, selected, selectLinea, puntos, loadingLineas, loadingPuntos, error } =
-    useMapa(lineasRepo)
+  const { sesion } = useSession()
+  const rol = sesion?.usuario.rol
+  const lineaAsignadaId = sesion?.usuario.lineaId ?? null
+  const scoped = rol === 'JEFE_RUTA' && lineaAsignadaId != null
+
+  const { lineas, selected, selectLinea, puntos, loadingLineas, loadingPuntos, error, fixed } =
+    useMapa(lineasRepo, scoped ? lineaAsignadaId : null)
 
   const [showAll, setShowAll] = useState(false)
 
@@ -81,12 +86,11 @@ export default function MapPage() {
 
   return (
     <Stack spacing={2}>
-      <Typography variant="h4">Mapa de rutas</Typography>
+      <Typography variant="h4">{fixed ? 'Mapa de mi ruta' : 'Mapa de rutas'}</Typography>
       <Typography color="text.secondary">
-        Líneas y paraderos desde la base de datos (
-        {config.apiUrl ? 'API configurada' : 'sin API'}).{' '}
-        {config.mapboxToken ? 'Usando Mapbox.' : 'Usando OpenStreetMap.'} Total: {lineas.length}{' '}
-        rutas.
+        {fixed
+          ? `Mostrando la ruta asignada a tu cuenta (${sesion?.usuario.lineaNombre || `ID ${lineaAsignadaId}`}) y sus subrutas.`
+          : `Líneas y paraderos desde la base de datos (${config.apiUrl ? 'API configurada' : 'sin API'}). ${config.mapboxToken ? 'Usando Mapbox.' : 'Usando OpenStreetMap.'} Total: ${lineas.length} rutas.`}
       </Typography>
 
       {error && (
@@ -98,32 +102,38 @@ export default function MapPage() {
       <Card>
         <CardContent>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
-            <Autocomplete
-              options={lineas}
-              value={selected}
-              onChange={(_, value) => selectLinea(value?.id ?? null)}
-              getOptionLabel={routeLabel}
-              isOptionEqualToValue={(a, b) => a.id === b.id}
-              filterOptions={(options, { inputValue }) => {
-                const query = inputValue.toLowerCase()
-                return options.filter(
-                  (linea) =>
-                    routeLabel(linea).toLowerCase().includes(query) ||
-                    (linea.corredor || '').toLowerCase().includes(query),
-                )
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Buscar línea / ruta"
-                  size="small"
-                  placeholder="Ej. C2, C7, SIT, Paucarpata..."
-                />
-              )}
-              sx={{ minWidth: 320, flex: 1 }}
-              loading={loadingLineas}
-              noOptionsText="Sin rutas"
-            />
+            {(!fixed || lineas.length > 1) ? (
+              <Autocomplete
+                options={lineas}
+                value={selected}
+                onChange={(_, value) => selectLinea(value?.id ?? null)}
+                getOptionLabel={routeLabel}
+                isOptionEqualToValue={(a, b) => a.id === b.id}
+                filterOptions={(options, { inputValue }) => {
+                  const query = inputValue.toLowerCase()
+                  return options.filter(
+                    (linea) =>
+                      routeLabel(linea).toLowerCase().includes(query) ||
+                      (linea.corredor || '').toLowerCase().includes(query),
+                  )
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label={fixed ? 'Subruta' : 'Buscar línea / ruta'}
+                    size="small"
+                    placeholder={fixed ? 'Selecciona una subruta...' : 'Ej. C2, C7, SIT, Paucarpata...'}
+                  />
+                )}
+                sx={{ minWidth: 320, flex: 1 }}
+                loading={loadingLineas}
+                noOptionsText="Sin rutas"
+              />
+            ) : (
+              <Typography variant="subtitle1" sx={{ flex: 1, fontWeight: 600 }}>
+                {selected ? routeLabel(selected) : sesion?.usuario.lineaNombre || 'Tu ruta asignada'}
+              </Typography>
+            )}
             {selected && (
               <Chip
                 label={selected.nombre}
@@ -152,8 +162,9 @@ export default function MapPage() {
       </Card>
 
       <Card sx={{ overflow: 'hidden' }}>
-        <Box sx={{ height: { xs: 420, md: 600 } }}>
+        <Box sx={{ height: { xs: 420, md: 600 }, bgcolor: '#e5e3df' }}>
           <MapContainer
+            key={selected?.id ?? 'map'}
             center={points[0] ?? DEFAULT_CENTER}
             zoom={13}
             style={{ height: '100%', width: '100%' }}
@@ -195,6 +206,17 @@ export default function MapPage() {
         </Box>
       </Card>
 
+      {fixed && !selected && !loadingLineas && (
+        <Alert severity="warning" sx={{ borderRadius: 3 }}>
+          No se encontró la ruta asignada a tu cuenta{lineaAsignadaId != null ? ` (ID ${lineaAsignadaId})` : ''}.
+          Verifica que tu usuario tenga una línea asignada y vuelve a iniciar sesión.
+        </Alert>
+      )}
+      {selected && !loadingPuntos && puntos.length === 0 && (
+        <Alert severity="info" sx={{ borderRadius: 3 }}>
+          Esta ruta no tiene paraderos/trazado disponible en la base de datos.
+        </Alert>
+      )}
       {!config.apiUrl && (
         <Alert severity="info" sx={{ borderRadius: 3 }}>
           Sin <code>VITE_API_URL</code>: configura la URL del backend en <code>.env</code> (local:{' '}

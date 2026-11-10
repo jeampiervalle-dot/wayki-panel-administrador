@@ -1,7 +1,9 @@
 // ============================================================
 // Datos: cliente HTTP único.
 // Toda petición al backend pasa por aquí (un solo lugar para
-// base URL, headers, parseo de JSON y manejo de errores).
+// base URL, headers, auth (JWT), parseo de JSON y errores).
+// Compatible con el backend gowayki-nest-admin-back (Django/DRF)
+// y el backend principal (Spring) sobre la misma base de datos.
 // ============================================================
 
 import { AppError } from '../domain/errors'
@@ -9,17 +11,20 @@ import { AppError } from '../domain/errors'
 export interface HttpClient {
   get<T>(path: string): Promise<T>
   post<T>(path: string, body?: unknown): Promise<T>
+  put<T>(path: string, body?: unknown): Promise<T>
   patch<T>(path: string, body?: unknown): Promise<T>
   delete<T>(path: string): Promise<T>
 }
 
-export function createHttpClient(baseUrl: string): HttpClient {
+export type TokenProvider = () => string | undefined
+
+export function createHttpClient(baseUrl: string, getToken?: TokenProvider): HttpClient {
   const base = baseUrl.replace(/\/$/, '')
 
   async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     if (!base) {
       throw new AppError(
-        'Configura VITE_API_URL en .env (URL de tu VPS, ej. http://IP:8080/api)',
+        'Configura VITE_API_URL en .env (ej. http://localhost:8000/api para gowayki-nest-admin-back)',
       )
     }
 
@@ -28,7 +33,13 @@ export function createHttpClient(baseUrl: string): HttpClient {
       : `${base}${path.startsWith('/') ? '' : '/'}${path}`
 
     const headers = new Headers(init.headers)
-    if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+    if (!headers.has('Content-Type') && init.body !== undefined) {
+      headers.set('Content-Type', 'application/json')
+    }
+    const token = getToken?.()
+    if (token && !headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${token}`)
+    }
 
     let response: Response
     try {
@@ -54,6 +65,11 @@ export function createHttpClient(baseUrl: string): HttpClient {
         method: 'POST',
         body: body === undefined ? undefined : JSON.stringify(body),
       }),
+    put: (path, body) =>
+      request(path, {
+        method: 'PUT',
+        body: body === undefined ? undefined : JSON.stringify(body),
+      }),
     patch: (path, body) =>
       request(path, {
         method: 'PATCH',
@@ -75,8 +91,9 @@ function parseBody(text: string): unknown {
 function extractMessage(data: unknown, status: number): string {
   if (data && typeof data === 'object') {
     const record = data as Record<string, unknown>
-    const message = record.message ?? record.mensaje ?? record.error
+    const message = record.message ?? record.mensaje ?? record.detail ?? record.error
     if (typeof message === 'string' && message) return message
+    if (Array.isArray(message) && typeof message[0] === 'string') return message[0]
     if (message != null) return JSON.stringify(message)
   }
   if (typeof data === 'string' && data) return data

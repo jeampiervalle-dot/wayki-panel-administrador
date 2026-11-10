@@ -12,6 +12,7 @@ import type {
   NuevoUsuario,
   PuntoControl,
   Sesion,
+  SolicitudRegistro,
   Unidad,
   Usuario,
 } from './models'
@@ -46,6 +47,12 @@ export interface UnidadesRepository {
 
 export interface EstadoRepository {
   consultar(): Promise<unknown>
+}
+
+export interface SolicitudesRepository {
+  listar(): Promise<SolicitudRegistro[]>
+  aprobar(id: number | string, usuarioAsignado?: string): Promise<SolicitudRegistro>
+  rechazar(id: number | string): Promise<SolicitudRegistro>
 }
 
 export interface SessionStore {

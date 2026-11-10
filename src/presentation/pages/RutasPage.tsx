@@ -29,7 +29,7 @@ const FORM_INICIAL: DatosLinea = {
   nombre: '',
   origen: '',
   destino: '',
-  colorHex: '#2F6B4F',
+  colorHex: '#7C6BC4',
 }
 
 export default function RutasPage() {

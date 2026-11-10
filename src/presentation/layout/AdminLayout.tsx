@@ -20,10 +20,13 @@ import RouteIcon from '@mui/icons-material/AltRouteRounded'
 import PeopleIcon from '@mui/icons-material/PeopleAltRounded'
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBusRounded'
 import LogoutIcon from '@mui/icons-material/LogoutRounded'
+import DeleteForeverIcon from '@mui/icons-material/DeleteForeverRounded'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettingsRounded'
-import PersonAddIcon from '@mui/icons-material/PersonAddAlt1Rounded'
+import AssignmentIndIcon from '@mui/icons-material/AssignmentIndRounded'
+import GroupsIcon from '@mui/icons-material/GroupsRounded'
+import SettingsIcon from '@mui/icons-material/SettingsRounded'
 import { config } from '../../config'
-import { useSession } from '../../app/providers'
+import { useDependencies, useSession } from '../../app/providers'
 import type { View } from '../../app/navigation'
 
 const DRAWER = 290
@@ -35,17 +38,29 @@ interface NavEntry {
   description: string
 }
 
-const MAIN_NAV: NavEntry[] = [
-  { view: 'inicio', icon: <DashboardIcon />, label: 'Inicio', description: 'Resumen y estado' },
-  { view: 'mapa', icon: <MapIcon />, label: 'Mapa', description: 'Rutas y puntos de control' },
-  { view: 'cuentas', icon: <PeopleIcon />, label: 'Cuentas', description: 'Usuarios: ver, editar, eliminar' },
-  { view: 'rutas', icon: <RouteIcon />, label: 'Rutas / Líneas', description: 'Crear, actualizar, eliminar' },
-  { view: 'unidades', icon: <DirectionsBusIcon />, label: 'Unidades', description: 'Vehículos y asignación' },
-]
+function navForRole(rol: string, lineaNombre?: string): NavEntry[] {
+  if (rol === 'JEFE_RUTA') {
+    const rutaLabel = lineaNombre ? `Mi ruta · ${lineaNombre}` : 'Mi ruta'
+    return [
+      { view: 'inicio', icon: <DashboardIcon />, label: 'Inicio', description: rutaLabel },
+      { view: 'solicitudes', icon: <AssignmentIndIcon />, label: 'Solicitudes', description: 'Choferes de tu ruta' },
+      { view: 'mis-choferes', icon: <GroupsIcon />, label: 'Mis choferes', description: 'Choferes en tu ruta' },
+      { view: 'combis', icon: <DirectionsBusIcon />, label: 'Combis', description: 'Unidades y asignación' },
+      { view: 'mapa', icon: <MapIcon />, label: 'Mapa', description: 'Ruta y puntos de control' },
+      { view: 'ajustes', icon: <SettingsIcon />, label: 'Ajustes', description: 'Línea y cambio de ruta' },
+    ]
+  }
 
-const PORTAL_NAV: NavEntry[] = [
-  { view: 'portal', icon: <PersonAddIcon />, label: 'Portal conductor', description: 'Acceso y selección de ruta' },
-]
+  // ADMIN (y fallback)
+  return [
+    { view: 'inicio', icon: <DashboardIcon />, label: 'Inicio', description: 'Resumen y estado' },
+    { view: 'solicitudes', icon: <AssignmentIndIcon />, label: 'Solicitudes', description: 'Altas (p. ej. jefes de ruta)' },
+    { view: 'mapa', icon: <MapIcon />, label: 'Mapa', description: 'Rutas y puntos de control' },
+    { view: 'cuentas', icon: <PeopleIcon />, label: 'Cuentas', description: 'Usuarios: ver, editar, eliminar' },
+    { view: 'rutas', icon: <RouteIcon />, label: 'Rutas / Líneas', description: 'Crear, actualizar, eliminar' },
+    { view: 'unidades', icon: <DirectionsBusIcon />, label: 'Unidades', description: 'Vehículos y asignación' },
+  ]
+}
 
 function NavButton({
   entry,
@@ -65,7 +80,7 @@ function NavButton({
       <ListItemAvatar>
         <Avatar
           sx={{
-            bgcolor: selected ? 'primary.main' : 'rgba(47,107,79,0.12)',
+            bgcolor: selected ? 'primary.main' : 'rgba(124,107,196,0.14)',
             color: selected ? '#fff' : 'primary.main',
           }}
         >
@@ -87,9 +102,26 @@ export default function AdminLayout({
   children: ReactNode
 }) {
   const { sesion, cerrarSesion } = useSession()
+  const { usuarios } = useDependencies()
   const usuario = sesion?.usuario
-  const nombre = usuario?.nombre || usuario?.dni || 'Administrador'
+  const nombre = usuario?.nombre || usuario?.dni || 'Usuario'
   const rol = usuario?.rol || 'ADMIN'
+  const navItems = navForRole(rol, usuario?.lineaNombre)
+
+  async function handleEliminarCuenta() {
+    if (!usuario?.id) return
+    const ok = window.confirm(
+      '¿Eliminar tu cuenta definitivamente? Esta acción no se puede deshacer.',
+    )
+    if (!ok) return
+    try {
+      await usuarios.eliminar(usuario.id)
+      cerrarSesion()
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'No se pudo eliminar la cuenta'
+      window.alert(message)
+    }
+  }
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
@@ -98,13 +130,13 @@ export default function AdminLayout({
         elevation={0}
         sx={{
           zIndex: (theme) => theme.zIndex.drawer + 1,
-          background: 'linear-gradient(90deg, #2F6B4F 0%, #3E7F60 60%, #4B8E6D 100%)',
+          background: 'linear-gradient(90deg, #6F5CC6 0%, #8B7BC8 55%, #A996E2 100%)',
         }}
       >
         <Toolbar>
           <AdminPanelSettingsIcon sx={{ mr: 1.2 }} />
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
-            Wayki Nest — Administración
+            {rol === 'JEFE_RUTA' ? 'Wayki Nest — Jefe de ruta' : 'Wayki Nest — Administración'}
           </Typography>
           <Chip
             label={rol}
@@ -125,23 +157,14 @@ export default function AdminLayout({
           [`& .MuiDrawer-paper`]: {
             width: DRAWER,
             boxSizing: 'border-box',
-            bgcolor: '#F1F8F2',
+            bgcolor: '#F1ECFA',
             p: 1,
           },
         }}
       >
         <Toolbar />
         <List sx={{ px: 1 }}>
-          {MAIN_NAV.map((entry) => (
-            <NavButton
-              key={entry.view}
-              entry={entry}
-              selected={view === entry.view}
-              onSelect={onNavigate}
-            />
-          ))}
-          <Divider sx={{ my: 1 }} />
-          {PORTAL_NAV.map((entry) => (
+          {navItems.map((entry) => (
             <NavButton
               key={entry.view}
               entry={entry}
@@ -161,6 +184,15 @@ export default function AdminLayout({
           >
             Cerrar sesión
           </Button>
+          <Button
+            fullWidth
+            color="error"
+            startIcon={<DeleteForeverIcon />}
+            onClick={handleEliminarCuenta}
+            sx={{ justifyContent: 'flex-start', borderRadius: 3, mt: 0.5 }}
+          >
+            Eliminar mi cuenta
+          </Button>
           <Typography
             variant="caption"
             color="text.secondary"
@@ -177,7 +209,7 @@ export default function AdminLayout({
         sx={{
           flexGrow: 1,
           p: { xs: 2, md: 3 },
-          background: 'linear-gradient(180deg, #F6FBF4 0%, #F8FCF8 100%)',
+          background: 'linear-gradient(180deg, #F6F3FC 0%, #FBF9FF 100%)',
         }}
       >
         <Toolbar />

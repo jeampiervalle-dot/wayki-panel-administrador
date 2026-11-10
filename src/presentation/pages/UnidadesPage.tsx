@@ -16,6 +16,8 @@ import {
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBusRounded'
 import SaveIcon from '@mui/icons-material/SaveRounded'
 import DeleteIcon from '@mui/icons-material/DeleteOutlineRounded'
+import EditIcon from '@mui/icons-material/EditOutlined'
+import CloseIcon from '@mui/icons-material/CloseRounded'
 import { toErrorMessage } from '../../domain/errors'
 import type { Unidad } from '../../domain/models'
 import { useLineas } from '../../application/useLineas'
@@ -45,6 +47,8 @@ export default function UnidadesPage() {
 
   const [msg, setMsg] = useState<string | null>(null)
   const [form, setForm] = useState<FormUnidad>(FORM_INICIAL)
+  const [editId, setEditId] = useState<number | null>(null)
+  const [editForm, setEditForm] = useState<FormUnidad | null>(null)
 
   async function handleCrear() {
     try {
@@ -66,8 +70,36 @@ export default function UnidadesPage() {
     try {
       await unidadesQuery.eliminar(unidad.id)
       setMsg('Unidad eliminada.')
+      if (editId === unidad.id) { setEditId(null); setEditForm(null) }
     } catch (cause) {
-      setMsg(`No se pudo eliminar (¿endpoint no disponible?): ${toErrorMessage(cause)}`)
+      setMsg(`No se pudo eliminar: ${toErrorMessage(cause)}`)
+    }
+  }
+
+  function startEdit(u: Unidad) {
+    setEditId(u.id)
+    setEditForm({
+      numeroPadron: u.numeroPadron ?? '',
+      placa: u.placa ?? '',
+      lineaId: u.lineaId != null ? String(u.lineaId) : '',
+      estado: u.estado ?? 'OPERATIVA',
+    })
+  }
+
+  async function handleActualizar(id: number) {
+    if (!editForm || !editForm.placa.trim() || !editForm.lineaId) return
+    try {
+      await unidadesQuery.actualizar(id, {
+        numeroPadron: editForm.numeroPadron.trim() || undefined,
+        placa: editForm.placa.trim(),
+        lineaId: Number(editForm.lineaId),
+        estado: editForm.estado,
+      })
+      setMsg('Unidad actualizada.')
+      setEditId(null)
+      setEditForm(null)
+    } catch (cause) {
+      setMsg(`No se pudo actualizar: ${toErrorMessage(cause)}`)
     }
   }
 
@@ -130,46 +162,74 @@ export default function UnidadesPage() {
         </Alert>
       ) : (
         <Stack spacing={1.5}>
-          {unidadesQuery.unidades.map((unidad) => (
-            <Card key={unidad.id} variant="outlined">
-              <CardContent>
-                <Stack
-                  direction={{ xs: 'column', sm: 'row' }}
-                  spacing={1.5}
-                  alignItems={{ sm: 'center' }}
-                  justifyContent="space-between"
-                >
-                  <Stack direction="row" spacing={1.5} alignItems="center">
-                    <Avatar sx={{ bgcolor: 'secondary.main' }}>
-                      <DirectionsBusIcon />
-                    </Avatar>
-                    <Box>
-                      <Typography variant="h6">
-                        Padrón {unidad.numeroPadron || '-'} · {unidad.placa}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Línea ID {unidad.lineaId ?? '-'} · Estado {unidad.estado || 'OPERATIVA'}
-                      </Typography>
+          {unidadesQuery.unidades.map((unidad) => {
+            const editing = editId === unidad.id && editForm
+            return (
+              <Card key={unidad.id} variant="outlined">
+                <CardContent>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1.5}
+                    alignItems={{ sm: 'center' }}
+                    justifyContent="space-between"
+                  >
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                        <DirectionsBusIcon />
+                      </Avatar>
+                      <Box>
+                        <Typography variant="h6">
+                          Padrón {unidad.numeroPadron || '-'} · {unidad.placa}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Línea {unidad.lineaNombre ?? (unidad.lineaId != null ? `ID ${unidad.lineaId}` : '-')} · Estado{' '}
+                          {unidad.estado || 'OPERATIVA'}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                      <Chip
+                        label={unidad.estado || 'OPERATIVA'}
+                        color={unidad.estado === 'OPERATIVA' ? 'success' : 'default'}
+                      />
+                      <Button size="small" startIcon={<EditIcon />} onClick={() => startEdit(unidad)}>
+                        Editar
+                      </Button>
+                      <Button
+                        size="small"
+                        color="error"
+                        startIcon={<DeleteIcon />}
+                        onClick={() => handleEliminar(unidad)}
+                      >
+                        Eliminar
+                      </Button>
+                    </Stack>
+                  </Stack>
+                  {editing && editForm && (
+                    <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                      <Typography variant="subtitle2" sx={{ mb: 1 }}>Editar unidad</Typography>
+                      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
+                        <TextField label="Nº padrón" value={editForm.numeroPadron} onChange={(e) => setEditForm({ ...editForm, numeroPadron: e.target.value })} size="small" />
+                        <TextField label="Placa" value={editForm.placa} onChange={(e) => setEditForm({ ...editForm, placa: e.target.value })} size="small" required />
+                        <TextField select label="Línea" value={editForm.lineaId} onChange={(e) => setEditForm({ ...editForm, lineaId: e.target.value })} size="small" sx={{ minWidth: 220 }}>
+                          {lineasQuery.lineas.map((linea) => (
+                            <MenuItem key={linea.id} value={String(linea.id)}>{linea.nombre}</MenuItem>
+                          ))}
+                        </TextField>
+                        <TextField select label="Estado" value={editForm.estado} onChange={(e) => setEditForm({ ...editForm, estado: e.target.value })} size="small" sx={{ minWidth: 150 }}>
+                          <MenuItem value="OPERATIVA">OPERATIVA</MenuItem>
+                          <MenuItem value="INACTIVA">INACTIVA</MenuItem>
+                          <MenuItem value="MANTENIMIENTO">MANTENIMIENTO</MenuItem>
+                        </TextField>
+                        <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={() => handleActualizar(unidad.id)}>Guardar</Button>
+                        <Button variant="text" size="small" startIcon={<CloseIcon />} onClick={() => { setEditId(null); setEditForm(null) }}>Cancelar</Button>
+                      </Stack>
                     </Box>
-                  </Stack>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Chip
-                      label={unidad.estado || 'OPERATIVA'}
-                      color={unidad.estado === 'OPERATIVA' ? 'success' : 'default'}
-                    />
-                    <Button
-                      size="small"
-                      color="error"
-                      startIcon={<DeleteIcon />}
-                      onClick={() => handleEliminar(unidad)}
-                    >
-                      Eliminar
-                    </Button>
-                  </Stack>
-                </Stack>
-              </CardContent>
-            </Card>
-          ))}
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })}
           {unidadesQuery.unidades.length === 0 && (
             <Alert severity="info" sx={{ borderRadius: 3 }}>
               No hay unidades para mostrar.

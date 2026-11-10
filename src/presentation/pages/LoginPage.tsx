@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Alert,
   Avatar,
@@ -14,14 +14,52 @@ import {
 } from '@mui/material'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettingsRounded'
 import { config } from '../../config'
-import { ROLES } from '../../domain/models'
 import { toErrorMessage } from '../../domain/errors'
-import { useSession } from '../../app/providers'
+import type { Linea } from '../../domain/models'
+import { useDependencies, useSession } from '../../app/providers'
+import { useLineas } from '../../application/useLineas'
 
 type Mode = 'login' | 'register'
 
+function extraerCodigoRuta(linea: Pick<Linea, 'nombre' | 'corredor'>): string | null {
+  const fromNombre = (linea.nombre ?? '').match(/\bC\d+\b/i)?.[0]
+  if (fromNombre) return fromNombre.toUpperCase()
+  const corredor = (linea.corredor ?? '').trim()
+  const fromCorredor = corredor.match(/\bC\d+\b/i)?.[0]
+  if (fromCorredor) return fromCorredor.toUpperCase()
+  if (/^C\d+$/i.test(corredor)) return corredor.toUpperCase()
+  return null
+}
+
+function lineasEmpresa(todas: Linea[]): Linea[] {
+  const porCodigo = new Map<string, Linea[]>()
+  for (const l of todas) {
+    const code = extraerCodigoRuta(l)
+    if (!code) continue
+    if (!porCodigo.has(code)) porCodigo.set(code, [])
+    porCodigo.get(code)!.push(l)
+  }
+  const res: Linea[] = []
+  for (const [code, grupo] of porCodigo.entries()) {
+    const principal = grupo.find((l) => /^L[ií]nea\s*C\d+/i.test(l.nombre ?? '')) ?? grupo.sort((a, b) => a.id - b.id)[0]
+    res.push({
+      ...principal,
+      nombre: /^L[ií]nea\s*C\d+/i.test(principal.nombre ?? '') ? principal.nombre : `Corredor ${code}`,
+      corredor: code,
+    })
+  }
+  return res.sort((a, b) => {
+    const na = parseInt((extraerCodigoRuta(a) || 'C0').slice(1), 10)
+    const nb = parseInt((extraerCodigoRuta(b) || 'C0').slice(1), 10)
+    return na - nb
+  })
+}
+
 export default function LoginPage() {
   const { iniciarSesion, registrar } = useSession()
+  const { lineas: lineasRepo } = useDependencies()
+  const { lineas, loading: loadingLineas } = useLineas(lineasRepo)
+  const empresas = useMemo(() => lineasEmpresa(lineas), [lineas])
 
   const [mode, setMode] = useState<Mode>('login')
   const [dni, setDni] = useState('')
@@ -29,13 +67,21 @@ export default function LoginPage() {
   const [nombre, setNombre] = useState('')
   const [telefono, setTelefono] = useState('')
   const [email, setEmail] = useState('')
-  const [rol, setRol] = useState<string>('ADMIN')
+  const [lineaId, setLineaId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
 
-  const credencialesValidas = dni.length >= 8 && pin.length >= 4
-  const registroValido = credencialesValidas && !!nombre.trim() && telefono.length >= 9
+  const credencialesValidas =
+    mode === 'login'
+      ? dni.trim().length >= 4 && pin.trim().length >= 4
+      : dni.trim().length >= 8 && pin.trim().length >= 4
+  const registroValido =
+    dni.trim().length >= 8 &&
+    pin.trim().length >= 4 &&
+    !!nombre.trim() &&
+    telefono.trim().length >= 9 &&
+    !!lineaId
 
   async function handleLogin() {
     setError(null)
@@ -61,10 +107,17 @@ export default function LoginPage() {
         telefono: telefono.trim(),
         email: email.trim() || undefined,
         pin: pin.trim(),
-        rol,
+        rol: 'JEFE_RUTA',
+        ...(lineaId ? { lineaId: Number(lineaId) } : {}),
       })
-      setOk('Cuenta creada. Ya puedes iniciar sesión.')
+      setOk(
+        'Cuenta creada. Seleccionaste tu ruta; podrás iniciar sesión cuando sea aprobada/activada según el flujo.',
+      )
       setMode('login')
+      setNombre('')
+      setTelefono('')
+      setEmail('')
+      setLineaId('')
     } catch (cause) {
       setError(toErrorMessage(cause, 'No se pudo crear la cuenta'))
     } finally {
@@ -86,7 +139,7 @@ export default function LoginPage() {
         placeItems: 'center',
         p: 2,
         background:
-          'radial-gradient(1200px 600px at 10% -10%, #D7EBDD 0%, transparent 60%), radial-gradient(900px 500px at 110% 10%, #CFE6D8 0%, transparent 55%), #F6FBF4',
+          'radial-gradient(1200px 600px at 10% -10%, #E4DCF8 0%, transparent 60%), radial-gradient(900px 500px at 110% 10%, #DDD2F6 0%, transparent 55%), #F6F3FC',
       }}
     >
       <Card sx={{ width: '100%', maxWidth: 500, p: 1 }}>
@@ -99,7 +152,7 @@ export default function LoginPage() {
               <Box>
                 <Typography variant="h5">Wayki Nest</Typography>
                 <Typography color="text.secondary">
-                  {mode === 'login' ? 'Panel administrador (root)' : 'Crear cuenta'}
+                  {mode === 'login' ? 'Acceso al panel de administración' : 'Crear cuenta (jefe de ruta)'}
                 </Typography>
               </Box>
             </Stack>
@@ -107,9 +160,15 @@ export default function LoginPage() {
             {!config.apiUrl && (
               <Alert severity="warning" sx={{ borderRadius: 3 }}>
                 Configura <code>VITE_API_URL</code> en <code>.env</code> (ej.{' '}
-                <code>http://IP_VPS:8080/api</code>).
+                <code>http://localhost:8000/api</code>).
               </Alert>
             )}
+
+            <Alert severity="info" sx={{ borderRadius: 3 }}>
+              {mode === 'login'
+                ? 'Ingresa con tus credenciales. Si eres jefe de ruta, verás el panel de tu ruta.'
+                : 'Regístrate como jefe de ruta y selecciona la línea/empresa de transporte en la que trabajarás. Choferes: app móvil; admin: credenciales de empresa.'}
+            </Alert>
 
             {mode === 'register' && (
               <>
@@ -122,9 +181,7 @@ export default function LoginPage() {
                 <TextField
                   label="Teléfono (9 dígitos)"
                   value={telefono}
-                  onChange={(event) =>
-                    setTelefono(event.target.value.replace(/\D/g, '').slice(0, 9))
-                  }
+                  onChange={(event) => setTelefono(event.target.value.replace(/\D/g, '').slice(0, 9))}
                   fullWidth
                 />
                 <TextField
@@ -135,14 +192,19 @@ export default function LoginPage() {
                 />
                 <TextField
                   select
-                  label="Rol"
-                  value={rol}
-                  onChange={(event) => setRol(event.target.value)}
+                  label="Selecciona tu ruta (empresa / línea de transporte)"
+                  value={lineaId}
+                  onChange={(event) => setLineaId(event.target.value)}
                   fullWidth
+                  helperText={
+                    loadingLineas
+                      ? 'Cargando rutas...'
+                      : 'Como jefe de ruta, elige la empresa/corredor (C2–C11), no una subruta.'
+                  }
                 >
-                  {ROLES.map((role) => (
-                    <MenuItem key={role} value={role}>
-                      {role}
+                  {empresas.map((linea) => (
+                    <MenuItem key={linea.id} value={String(linea.id)}>
+                      {linea.nombre}
                     </MenuItem>
                   ))}
                 </TextField>
@@ -150,17 +212,22 @@ export default function LoginPage() {
             )}
 
             <TextField
-              label="DNI (8 dígitos)"
+              label={mode === 'login' ? 'Usuario / DNI' : 'DNI (8 dígitos)'}
               value={dni}
-              onChange={(event) => setDni(event.target.value.replace(/\D/g, '').slice(0, 8))}
+              onChange={(event) => {
+                const v = event.target.value
+                setDni(mode === 'login' ? v.replace(/\s/g, '').slice(0, 20) : v.replace(/\D/g, '').slice(0, 8))
+              }}
               fullWidth
+              autoComplete="username"
             />
             <TextField
-              label="PIN (4+ dígitos)"
+              label="Contraseña / PIN"
               value={pin}
-              onChange={(event) => setPin(event.target.value.replace(/\D/g, '').slice(0, 8))}
+              onChange={(event) => setPin(event.target.value.slice(0, 64))}
               type="password"
               fullWidth
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               onKeyDown={(event) => {
                 if (event.key !== 'Enter') return
                 if (mode === 'login') void handleLogin()
@@ -202,8 +269,9 @@ export default function LoginPage() {
             <Button variant="text" onClick={toggleMode}>
               {mode === 'login' ? 'Crear cuenta' : 'Ya tengo cuenta, iniciar sesión'}
             </Button>
+
             <Typography variant="caption" color="text.secondary">
-              Conectado al backend VPS. Los permisos dependen del rol.
+              Acceso restringido. Los permisos dependen del rol asignado.
             </Typography>
           </Stack>
         </CardContent>

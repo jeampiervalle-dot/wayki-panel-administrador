@@ -14,6 +14,7 @@ import PeopleIcon from '@mui/icons-material/PeopleAltRounded'
 import RouteIcon from '@mui/icons-material/AltRouteRounded'
 import MapIcon from '@mui/icons-material/MapRounded'
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBusRounded'
+import AssignmentIndIcon from '@mui/icons-material/AssignmentIndRounded'
 import RefreshIcon from '@mui/icons-material/RefreshRounded'
 import CheckCircleIcon from '@mui/icons-material/CheckCircleRounded'
 import { config } from '../../config'
@@ -29,9 +30,9 @@ interface AccessCard {
 }
 
 const ACCESS_CARDS: AccessCard[] = [
+  { title: 'Solicitudes', description: 'Aprobar o rechazar altas desde la app móvil.', view: 'solicitudes', icon: <AssignmentIndIcon /> },
   { title: 'Cuentas', description: 'Ver, actualizar o eliminar usuarios.', view: 'cuentas', icon: <PeopleIcon /> },
   { title: 'Rutas / Líneas', description: 'Crear, actualizar y eliminar rutas.', view: 'rutas', icon: <RouteIcon /> },
-  { title: 'Mapa', description: 'Visualizar rutas y puntos de control.', view: 'mapa', icon: <MapIcon /> },
   { title: 'Unidades', description: 'Gestionar vehículos de la flota.', view: 'unidades', icon: <DirectionsBusIcon /> },
 ]
 

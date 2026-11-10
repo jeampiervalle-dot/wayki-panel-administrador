@@ -16,6 +16,15 @@ export function useUnidades(repo: UnidadesRepository) {
     [repo, reload],
   )
 
+  const actualizar = useCallback(
+    async (id: number, datos: DatosUnidad): Promise<Unidad> => {
+      const actualizada = await repo.actualizar(id, datos)
+      reload()
+      return actualizada
+    },
+    [repo, reload],
+  )
+
   const eliminar = useCallback(
     async (id: number): Promise<void> => {
       await repo.eliminar(id)
@@ -30,6 +39,7 @@ export function useUnidades(repo: UnidadesRepository) {
     error: query.error,
     reload,
     crear,
+    actualizar,
     eliminar,
   }
 }

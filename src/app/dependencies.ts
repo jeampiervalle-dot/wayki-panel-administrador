@@ -10,12 +10,14 @@ import { createEstadoRepository } from '../data/repositories/httpEstadoRepositor
 import { createLineasRepository } from '../data/repositories/httpLineasRepository'
 import { createUnidadesRepository } from '../data/repositories/httpUnidadesRepository'
 import { createUsuariosRepository } from '../data/repositories/httpUsuariosRepository'
+import { createSolicitudesRepository } from '../data/repositories/httpSolicitudesRepository'
 import { createLocalSessionStore } from '../data/sessionStore'
 import type {
   AuthRepository,
   EstadoRepository,
   LineasRepository,
   SessionStore,
+  SolicitudesRepository,
   UnidadesRepository,
   UsuariosRepository,
 } from '../domain/ports'
@@ -23,6 +25,7 @@ import type {
 export interface Dependencies {
   auth: AuthRepository
   usuarios: UsuariosRepository
+  solicitudes: SolicitudesRepository
   lineas: LineasRepository
   unidades: UnidadesRepository
   estado: EstadoRepository
@@ -30,14 +33,16 @@ export interface Dependencies {
 }
 
 export function createDependencies(): Dependencies {
-  const http = createHttpClient(config.apiUrl)
+  const sessionStore = createLocalSessionStore()
+  const http = createHttpClient(config.apiUrl, () => sessionStore.leer()?.token)
 
   return {
     auth: createAuthRepository(http),
     usuarios: createUsuariosRepository(http),
+    solicitudes: createSolicitudesRepository(http),
     lineas: createLineasRepository(http),
     unidades: createUnidadesRepository(http),
     estado: createEstadoRepository(http),
-    sessionStore: createLocalSessionStore(),
+    sessionStore,
   }
 }
