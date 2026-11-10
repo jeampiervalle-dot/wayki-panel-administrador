@@ -11,6 +11,7 @@ Panel web para revisar solicitudes de registro enviadas desde la app móvil, apr
 - **[docs/COMO-FUNCIONA.md](docs/COMO-FUNCIONA.md)** — qué hace cada pantalla,
   cómo se conecta al backend, contrato de endpoints, limitaciones conocidas y
   cómo extender el panel.
+- **[DEPLOY_VPS.md](DEPLOY_VPS.md)** — cómo implementar/desplegar el panel y el backend Spring en un VPS usando la base de datos del VPS (paso a paso, configuración y checklist).
 
 ## Ejecutar
 
