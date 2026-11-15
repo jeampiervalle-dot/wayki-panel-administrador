@@ -35,12 +35,12 @@ export default function CuentasPage() {
   }
 
   async function handleCambiarRol(usuario: Usuario) {
-    const rol = usuario.rol === 'ADMIN' ? 'CHOFER' : 'ADMIN'
+    const rol = usuario.rol === 'ADMIN' ? 'JEFE_RUTA' : 'ADMIN'
     try {
       await cambiarRol(usuario.id, rol)
       setMsg(`Rol actualizado a ${rol}.`)
     } catch (cause) {
-      setMsg(`No se pudo actualizar (¿endpoint no disponible?): ${toErrorMessage(cause)}`)
+      setMsg(`No se pudo actualizar: ${toErrorMessage(cause)}`)
     }
   }
 
@@ -48,8 +48,8 @@ export default function CuentasPage() {
     <Stack spacing={2}>
       <PageHeader title="Cuentas" onRefresh={reload} />
       <Typography color="text.secondary">
-        Usuarios registrados. Puedes actualizar o eliminar (si el backend expone los endpoints; si
-        no, verás el aviso).
+        Cuentas registradas. Los choferes se dan de alta desde la app y los aprueba el jefe de
+        ruta; aquí puedes gestionar jefes de ruta y administradores.
       </Typography>
 
       <FeedbackAlert message={msg} onClose={() => setMsg(null)} />
@@ -65,13 +65,8 @@ export default function CuentasPage() {
           {usuarios.map((usuario) => (
             <Card key={usuario.id} variant="outlined">
               <CardContent>
-                <Stack
-                  direction={{ xs: 'column', sm: 'row' }}
-                  spacing={1.5}
-                  alignItems={{ sm: 'center' }}
-                  justifyContent="space-between"
-                >
-                  <Stack direction="row" spacing={1.5} alignItems="center">
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
+                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
                     <Avatar sx={{ bgcolor: 'primary.main' }}>
                       {(usuario.nombre || '?').slice(0, 1)}
                     </Avatar>
@@ -84,15 +79,17 @@ export default function CuentasPage() {
                     </Box>
                   </Stack>
 
-                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                     <Chip
                       label={usuario.rol || 'CHOFER'}
                       color={usuario.rol === 'ADMIN' ? 'primary' : 'default'}
                     />
                     <Chip label={usuario.isOnline ? 'En línea' : 'Offline'} variant="outlined" />
-                    <Button size="small" onClick={() => handleCambiarRol(usuario)}>
-                      Cambiar rol
-                    </Button>
+                    {usuario.rol !== 'CHOFER' && (
+                      <Button size="small" onClick={() => handleCambiarRol(usuario)}>
+                        Cambiar rol
+                      </Button>
+                    )}
                     <Button
                       size="small"
                       color="error"

@@ -3,7 +3,7 @@ import RefreshIcon from '@mui/icons-material/RefreshRounded'
 
 export function PageHeader({ title, onRefresh }: { title: string; onRefresh?: () => void }) {
   return (
-    <Stack direction="row" alignItems="center">
+    <Stack direction="row" sx={{ alignItems: 'center' }}>
       <Typography variant="h4" sx={{ flex: 1 }}>
         {title}
       </Typography>

@@ -13,7 +13,6 @@ import {
   Typography,
 } from '@mui/material'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettingsRounded'
-import { config } from '../../config'
 import { toErrorMessage } from '../../domain/errors'
 import type { Linea } from '../../domain/models'
 import { useDependencies, useSession } from '../../app/providers'
@@ -145,7 +144,7 @@ export default function LoginPage() {
       <Card sx={{ width: '100%', maxWidth: 500, p: 1 }}>
         <CardContent>
           <Stack spacing={2.2}>
-            <Stack direction="row" spacing={1.5} alignItems="center">
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
               <Avatar sx={{ bgcolor: 'primary.main', width: 52, height: 52 }}>
                 <AdminPanelSettingsIcon />
               </Avatar>
@@ -157,18 +156,25 @@ export default function LoginPage() {
               </Box>
             </Stack>
 
-            {!config.apiUrl && (
-              <Alert severity="warning" sx={{ borderRadius: 3 }}>
-                Configura <code>VITE_API_URL</code> en <code>.env</code> (ej.{' '}
-                <code>http://localhost:8000/api</code>).
+            {mode === 'login' ? (
+              <Alert severity="info" sx={{ borderRadius: 3 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  Datos locales (sin backend)
+                </Typography>
+                <Typography variant="body2">
+                  Admin: <code>12345678</code> / <code>1234</code>
+                  <br />
+                  Jefe de ruta: <code>87654321</code> / <code>1234</code>
+                  <br />
+                  Los choferes ingresan solo desde la app móvil.
+                </Typography>
+              </Alert>
+            ) : (
+              <Alert severity="info" sx={{ borderRadius: 3 }}>
+                El registro del panel es solo para <strong>jefes de ruta</strong>. Crea una solicitud
+                que el admin aprueba; los choferes se registran en la app móvil.
               </Alert>
             )}
-
-            <Alert severity="info" sx={{ borderRadius: 3 }}>
-              {mode === 'login'
-                ? 'Ingresa con tus credenciales. Si eres jefe de ruta, verás el panel de tu ruta.'
-                : 'Regístrate como jefe de ruta y selecciona la línea/empresa de transporte en la que trabajarás. Choferes: app móvil; admin: credenciales de empresa.'}
-            </Alert>
 
             {mode === 'register' && (
               <>
@@ -199,7 +205,7 @@ export default function LoginPage() {
                   helperText={
                     loadingLineas
                       ? 'Cargando rutas...'
-                      : 'Como jefe de ruta, elige la empresa/corredor (C2–C11), no una subruta.'
+                      : 'Como jefe de ruta, elige la línea o corredor en el que trabajarás.'
                   }
                 >
                   {empresas.map((linea) => (

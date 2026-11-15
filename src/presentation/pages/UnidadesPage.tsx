@@ -115,7 +115,7 @@ export default function UnidadesPage() {
           <Typography variant="h6" sx={{ mb: 1.5 }}>
             Registrar unidad
           </Typography>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} useFlexGap sx={{ flexWrap: 'wrap' }}>
             <TextField
               label="Nº padrón"
               value={form.numeroPadron}
@@ -167,13 +167,8 @@ export default function UnidadesPage() {
             return (
               <Card key={unidad.id} variant="outlined">
                 <CardContent>
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={1.5}
-                    alignItems={{ sm: 'center' }}
-                    justifyContent="space-between"
-                  >
-                    <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
+                    <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
                       <Avatar sx={{ bgcolor: 'secondary.main' }}>
                         <DirectionsBusIcon />
                       </Avatar>
@@ -187,7 +182,7 @@ export default function UnidadesPage() {
                         </Typography>
                       </Box>
                     </Stack>
-                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                    <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                       <Chip
                         label={unidad.estado || 'OPERATIVA'}
                         color={unidad.estado === 'OPERATIVA' ? 'success' : 'default'}
@@ -208,7 +203,7 @@ export default function UnidadesPage() {
                   {editing && editForm && (
                     <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
                       <Typography variant="subtitle2" sx={{ mb: 1 }}>Editar unidad</Typography>
-                      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
+                      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} useFlexGap sx={{ flexWrap: 'wrap' }}>
                         <TextField label="Nº padrón" value={editForm.numeroPadron} onChange={(e) => setEditForm({ ...editForm, numeroPadron: e.target.value })} size="small" />
                         <TextField label="Placa" value={editForm.placa} onChange={(e) => setEditForm({ ...editForm, placa: e.target.value })} size="small" required />
                         <TextField select label="Línea" value={editForm.lineaId} onChange={(e) => setEditForm({ ...editForm, lineaId: e.target.value })} size="small" sx={{ minWidth: 220 }}>

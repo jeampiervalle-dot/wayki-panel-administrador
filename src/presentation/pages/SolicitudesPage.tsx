@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Alert,
   Avatar,
@@ -9,14 +9,14 @@ import {
   Chip,
   CircularProgress,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material'
 import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlineRounded'
 import CancelIcon from '@mui/icons-material/HighlightOffRounded'
 import AssignmentIndIcon from '@mui/icons-material/AssignmentIndRounded'
+import LockIcon from '@mui/icons-material/LockRounded'
 import { toErrorMessage } from '../../domain/errors'
-import type { SolicitudRegistro } from '../../domain/models'
+import type { SolicitudRegistro, TipoSolicitud } from '../../domain/models'
 import { useSolicitudes } from '../../application/useSolicitudes'
 import { useDependencies, useSession } from '../../app/providers'
 import { FeedbackAlert } from '../components/FeedbackAlert'
@@ -28,36 +28,65 @@ function estadoColor(estado: SolicitudRegistro['estado']) {
   return 'warning' as const
 }
 
+const TIPO_LABEL: Record<TipoSolicitud, string> = {
+  CHOFER: 'Chofer (app)',
+  JEFE_RUTA: 'Jefe de ruta',
+  CAMBIO_RUTA: 'Cambio de ruta',
+}
+
+function codigoRuta(texto?: string): string | null {
+  return texto?.match(/\bC\d+\b/i)?.[0]?.toUpperCase() ?? null
+}
+
 export default function SolicitudesPage() {
   const { sesion } = useSession()
   const { solicitudes: solicitudesRepo } = useDependencies()
   const { solicitudes, loading, error, reload, aprobar, rechazar } = useSolicitudes(solicitudesRepo)
   const [msg, setMsg] = useState<string | null>(null)
-  const [aprobandoId, setAprobandoId] = useState<string | number | null>(null)
-  const [usuarioAsignado, setUsuarioAsignado] = useState('')
   const [busyId, setBusyId] = useState<string | number | null>(null)
 
   const rol = sesion?.usuario.rol
   const esJefe = rol === 'JEFE_RUTA'
-  const titulo = esJefe ? 'Solicitudes de choferes' : 'Solicitudes de registro'
+  const miCodigo =
+    codigoRuta(sesion?.usuario.lineaNombre) ??
+    (sesion?.usuario.lineaId != null ? `C${sesion.usuario.lineaId}` : null)
+
+  // Cada rol aprueba solo lo suyo: el jefe los choferes de su ruta y el
+  // admin las altas de jefes de ruta y los cambios de ruta.
+  const visibles = useMemo(() => {
+    if (esJefe) {
+      return solicitudes.filter(
+        (solicitud) =>
+          solicitud.tipo === 'CHOFER' &&
+          (!miCodigo || codigoRuta(solicitud.rutaTrabajo) === miCodigo),
+      )
+    }
+    return solicitudes.filter((solicitud) => solicitud.tipo !== 'CHOFER')
+  }, [esJefe, miCodigo, solicitudes])
+
+  const titulo = esJefe ? 'Altas de choferes' : 'Jefes de ruta'
   const descripcion = esJefe
-    ? 'Solicitudes de choferes para tu ruta enviadas desde la app móvil. Aprueba o rechaza y asigna el identificador para que el chofer cree su PIN. (El filtrado por tu línea requiere soporte de solicitudes tipadas/scoped en el backend.)'
-    : 'Solicitudes de registro enviadas desde la app móvil (p. ej. jefes de ruta). Revisa y aprueba o rechaza; al aprobar asigna el identificador de acceso.'
+    ? 'Los choferes se registran en la app móvil y crean su PIN allí. Aprueba a los de tu ruta para que puedan iniciar sesión en la app.'
+    : 'Altas de jefes de ruta y cambios de ruta. Los choferes los aprueba el jefe de cada ruta; tú solo gestionas a los jefes.'
 
   async function handleAprobar(solicitud: SolicitudRegistro) {
-    const identificador = usuarioAsignado.trim()
-    if (!identificador) {
-      setMsg('Ingresa el identificador de acceso para aprobar la solicitud.')
-      return
-    }
     setBusyId(solicitud.id)
+    setMsg(null)
     try {
-      await aprobar(solicitud.id, identificador)
-      setMsg(`Solicitud aprobada. Identificador asignado: ${identificador}.`)
-      setAprobandoId(null)
-      setUsuarioAsignado('')
+      await aprobar(solicitud.id)
+      if (solicitud.tipo === 'CHOFER') {
+        setMsg(
+          `Chofer aprobado${solicitud.rutaTrabajo ? ` para ${solicitud.rutaTrabajo}` : ''}. Ya puede entrar a la app con su DNI y el PIN que creó en su registro.`,
+        )
+      } else if (solicitud.tipo === 'CAMBIO_RUTA') {
+        setMsg('Cambio de ruta aprobado.')
+      } else {
+        setMsg(
+          `Jefe de ruta aprobado. Ya puede ingresar al panel con su DNI y el PIN que registró.`,
+        )
+      }
     } catch (cause) {
-      setMsg(`No se pudo aprobar (¿endpoint no disponible?): ${toErrorMessage(cause)}`)
+      setMsg(`No se pudo aprobar: ${toErrorMessage(cause)}`)
     } finally {
       setBusyId(null)
     }
@@ -69,12 +98,8 @@ export default function SolicitudesPage() {
     try {
       await rechazar(solicitud.id)
       setMsg('Solicitud rechazada.')
-      if (aprobandoId === solicitud.id) {
-        setAprobandoId(null)
-        setUsuarioAsignado('')
-      }
     } catch (cause) {
-      setMsg(`No se pudo rechazar (¿endpoint no disponible?): ${toErrorMessage(cause)}`)
+      setMsg(`No se pudo rechazar: ${toErrorMessage(cause)}`)
     } finally {
       setBusyId(null)
     }
@@ -92,28 +117,18 @@ export default function SolicitudesPage() {
       ) : error ? (
         <Alert severity="warning" sx={{ borderRadius: 3 }}>
           {error}
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            Verifica que el backend admin exponga <code>/api/solicitudes-registro</code> (misma base{' '}
-            <code>gowayki_db</code>).
-          </Typography>
         </Alert>
       ) : (
         <Stack spacing={1.5}>
-          {solicitudes.map((solicitud) => {
+          {visibles.map((solicitud) => {
             const pendiente = solicitud.estado === 'PENDIENTE'
-            const aprobando = aprobandoId === solicitud.id
             const busy = busyId === solicitud.id
             return (
               <Card key={String(solicitud.id)} variant="outlined">
                 <CardContent>
                   <Stack spacing={1.5}>
-                    <Stack
-                      direction={{ xs: 'column', sm: 'row' }}
-                      spacing={1.5}
-                      alignItems={{ sm: 'center' }}
-                      justifyContent="space-between"
-                    >
-                      <Stack direction="row" spacing={1.5} alignItems="center">
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
+                      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
                         <Avatar sx={{ bgcolor: 'primary.main' }}>
                           <AssignmentIndIcon />
                         </Avatar>
@@ -126,27 +141,36 @@ export default function SolicitudesPage() {
                             {solicitud.placaNumero ? ` · Placa ${solicitud.placaNumero}` : ''}
                             {solicitud.rutaTrabajo ? ` · Ruta ${solicitud.rutaTrabajo}` : ''}
                           </Typography>
-                          {solicitud.usuarioAsignado && (
-                            <Typography variant="body2" color="text.secondary">
-                              Identificador asignado: {solicitud.usuarioAsignado}
+                          {solicitud.tipo === 'CHOFER' && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}
+                            >
+                              <LockIcon sx={{ fontSize: 14 }} /> PIN creado por el chofer en la app (no se
+                              muestra aquí)
                             </Typography>
                           )}
                         </Box>
                       </Stack>
 
-                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                      <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                        {solicitud.tipo && (
+                          <Chip
+                            label={TIPO_LABEL[solicitud.tipo]}
+                            variant="outlined"
+                            size="small"
+                            color={solicitud.tipo === 'CHOFER' ? 'primary' : 'default'}
+                          />
+                        )}
                         <Chip label={solicitud.estado} color={estadoColor(solicitud.estado)} />
-                        {pendiente && !aprobando && (
+                        {pendiente && (
                           <>
                             <Button
                               size="small"
                               color="success"
                               startIcon={<CheckCircleIcon />}
-                              onClick={() => {
-                                setAprobandoId(solicitud.id)
-                                setUsuarioAsignado(solicitud.usuarioAsignado || '')
-                                setMsg(null)
-                              }}
+                              onClick={() => handleAprobar(solicitud)}
                               disabled={busy}
                             >
                               Aprobar
@@ -164,44 +188,16 @@ export default function SolicitudesPage() {
                         )}
                       </Stack>
                     </Stack>
-
-                    {aprobando && (
-                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
-                        <TextField
-                          label="Identificador de acceso (para crear PIN)"
-                          value={usuarioAsignado}
-                          onChange={(event) => setUsuarioAsignado(event.target.value)}
-                          size="small"
-                          sx={{ minWidth: 260 }}
-                          disabled={busy}
-                        />
-                        <Button
-                          variant="contained"
-                          color="success"
-                          onClick={() => handleAprobar(solicitud)}
-                          disabled={busy || !usuarioAsignado.trim()}
-                        >
-                          Confirmar aprobación
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            setAprobandoId(null)
-                            setUsuarioAsignado('')
-                          }}
-                          disabled={busy}
-                        >
-                          Cancelar
-                        </Button>
-                      </Stack>
-                    )}
                   </Stack>
                 </CardContent>
               </Card>
             )
           })}
-          {solicitudes.length === 0 && (
+          {visibles.length === 0 && (
             <Alert severity="info" sx={{ borderRadius: 3 }}>
-              No hay solicitudes de registro para mostrar.
+              {esJefe
+                ? 'No hay solicitudes de choferes para tu ruta.'
+                : 'No hay altas de jefes de ruta ni cambios de ruta.'}
             </Alert>
           )}
         </Stack>

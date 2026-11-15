@@ -161,7 +161,7 @@ export default function CombisPage() {
     }
     const lineaIdNum = Number(form.lineaId)
     if (!Number.isFinite(lineaIdNum) || lineaIdNum <= 0) {
-      setMsg('La subruta seleccionada no tiene línea registrada en la base de datos, no se puede asignar la combi.')
+      setMsg('La subruta seleccionada no tiene línea registrada; no se puede asignar la combi.')
       return
     }
     setSaving(true)
@@ -185,8 +185,8 @@ export default function CombisPage() {
     <Stack spacing={2}>
       <PageHeader title="Combis de mi ruta" onRefresh={reload} />
       <Typography color="text.secondary">
-        Registra y consulta las combis/unidades de tu ruta{lineaNombre ? ` (${lineaNombre})` : ''}. La acción de{' '}
-        <b>asignar combi a chofer</b> requiere el endpoint/relación de asignación en el backend (chofer↔unidad).
+        Registra y consulta las combis/unidades de tu ruta{lineaNombre ? ` (${lineaNombre})` : ''}. La
+        asignación de combi a chofer se gestiona desde la app móvil.
       </Typography>
       <FeedbackAlert message={msg} onClose={() => setMsg(null)} />
 
@@ -195,7 +195,7 @@ export default function CombisPage() {
           <Typography variant="h6" sx={{ mb: 1.5 }}>
             Añadir combi
           </Typography>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} useFlexGap sx={{ flexWrap: 'wrap' }}>
             <TextField
               label="Nº padrón"
               value={form.numeroPadron}
@@ -261,8 +261,8 @@ export default function CombisPage() {
             return (
               <Card key={unidad.id} variant="outlined">
                 <CardContent>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }} justifyContent="space-between">
-                    <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
+                    <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
                       <Avatar sx={{ bgcolor: 'secondary.main' }}>
                         <DirectionsBusIcon />
                       </Avatar>
@@ -276,7 +276,7 @@ export default function CombisPage() {
                         </Typography>
                       </Box>
                     </Stack>
-                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                    <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                       <Chip label={unidad.estado || 'OPERATIVA'} color={unidad.estado === 'OPERATIVA' ? 'success' : 'default'} />
                       <Button size="small" startIcon={<EditIcon />} onClick={() => startEdit(unidad)} disabled={busyId === unidad.id}>
                         Editar
@@ -290,7 +290,7 @@ export default function CombisPage() {
                   {editing && editForm && (
                     <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
                       <Typography variant="subtitle2" sx={{ mb: 1 }}>Editar combi</Typography>
-                      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
+                      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} useFlexGap sx={{ flexWrap: 'wrap' }}>
                         <TextField
                           label="Nº padrón"
                           value={editForm.numeroPadron}

@@ -97,6 +97,9 @@ export interface DatosUnidad {
 
 export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA'
 
+/** Quién pide el alta: chofer (desde la app), jefe de ruta o cambio de ruta. */
+export type TipoSolicitud = 'JEFE_RUTA' | 'CHOFER' | 'CAMBIO_RUTA'
+
 export interface SolicitudRegistro {
   id: number | string
   dni: string
@@ -104,6 +107,7 @@ export interface SolicitudRegistro {
   telefono?: string
   placaNumero?: string
   rutaTrabajo?: string
+  tipo?: TipoSolicitud
   estado: EstadoSolicitud
   usuarioAsignado?: string
   creadoEn?: string

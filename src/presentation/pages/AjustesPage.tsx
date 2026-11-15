@@ -71,17 +71,15 @@ export default function AjustesPage() {
     setBusy(true)
     setMsg(null)
     try {
-      // Intento genérico: crea una solicitud de registro/cambio con datos disponibles.
-      // El backend definitivo debe exponer un tipo CAMBIO_RUTA y validar alcance/aprobación.
-      await (solicitudes as any).crearCambioRuta?.({
+      // Se crea una solicitud tipada CAMBIO_RUTA que el administrador aprueba.
+      await solicitudes.crearCambioRuta({
         usuarioId: usuario?.id,
         lineaSolicitadaId: Number(nuevaLineaId),
       })
       setMsg(`Solicitud de cambio enviada${linea ? ` a ${linea.nombre}` : ''}.`)
     } catch (cause) {
-      // Fallback informativo si el endpoint no existe.
       setMsg(
-        `No se pudo registrar la solicitud en el backend (requiere endpoint de cambio de ruta). ` +
+        `No se pudo registrar la solicitud local. ` +
           `Ruta solicitada: ${linea?.nombre || nuevaLineaId}. Detalle: ${toErrorMessage(cause)}`,
       )
     } finally {
@@ -114,8 +112,8 @@ export default function AjustesPage() {
           <Stack spacing={1.5}>
             <Typography variant="h6">Solicitar cambio de ruta</Typography>
             <Typography variant="body2" color="text.secondary">
-              Si te cambias de ruta, envía una solicitud para que sea aprobada según el flujo definido (admin/jefe
-              destino). Requiere soporte de solicitudes tipadas (<code>CAMBIO_RUTA</code>) en el backend.
+              Si te cambias de ruta, envía una solicitud; el administrador la revisa y aprueba desde
+              Solicitudes.
             </Typography>
             <TextField
               select
@@ -123,7 +121,7 @@ export default function AjustesPage() {
               value={nuevaLineaId}
               onChange={(e) => setNuevaLineaId(e.target.value)}
               sx={{ maxWidth: 420 }}
-              helperText="Selecciona la empresa/corredor (C2–C11), no una subruta específica."
+              helperText="Selecciona la ruta a la que quieres cambiarte."
             >
               {empresas.map((l) => (
                 <MenuItem key={l.id} value={String(l.id)}>

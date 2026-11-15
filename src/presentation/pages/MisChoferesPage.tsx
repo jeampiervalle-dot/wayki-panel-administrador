@@ -26,8 +26,8 @@ export default function MisChoferesPage() {
     <Stack spacing={2}>
       <PageHeader title="Mis choferes" onRefresh={reload} />
       <Typography color="text.secondary">
-        Choferes de tu ruta. La asignación de combi y el alcance por línea se completan cuando el backend exponga
-        <code> lineaId</code> y la relación chofer↔unidad.
+        Choferes de tu ruta. Los datos son locales: puedes agregar o editar combis y el alcance por
+        línea se toma de tu cuenta.
       </Typography>
 
       {lineaId == null && (
@@ -47,8 +47,8 @@ export default function MisChoferesPage() {
           {choferes.map((u) => (
             <Card key={u.id} variant="outlined">
               <CardContent>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }} justifyContent="space-between">
-                  <Stack direction="row" spacing={1.5} alignItems="center">
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
+                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
                     <Avatar sx={{ bgcolor: 'primary.main' }}>{(u.nombre || '?').slice(0, 1)}</Avatar>
                     <Box>
                       <Typography variant="h6">{u.nombre}</Typography>
@@ -57,7 +57,7 @@ export default function MisChoferesPage() {
                       </Typography>
                     </Box>
                   </Stack>
-                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                     <Chip label={u.rol} />
                     <Chip label={u.isOnline ? 'En línea' : 'Offline'} variant="outlined" />
                     {u.lineaNombre && <Chip label={u.lineaNombre} color="primary" variant="outlined" />}

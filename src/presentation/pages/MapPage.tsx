@@ -90,18 +90,18 @@ export default function MapPage() {
       <Typography color="text.secondary">
         {fixed
           ? `Mostrando la ruta asignada a tu cuenta (${sesion?.usuario.lineaNombre || `ID ${lineaAsignadaId}`}) y sus subrutas.`
-          : `Líneas y paraderos desde la base de datos (${config.apiUrl ? 'API configurada' : 'sin API'}). ${config.mapboxToken ? 'Usando Mapbox.' : 'Usando OpenStreetMap.'} Total: ${lineas.length} rutas.`}
+          : `Líneas y paraderos de demostración (datos locales). ${config.mapboxToken ? 'Usando Mapbox.' : 'Usando OpenStreetMap.'} Total: ${lineas.length} rutas.`}
       </Typography>
 
       {error && (
         <Alert severity="warning" sx={{ borderRadius: 3 }}>
-          {error} — verifica <code>VITE_API_URL</code> y el backend.
+          {error} — revisa los datos locales de la ruta.
         </Alert>
       )}
 
       <Card>
         <CardContent>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: { md: 'center' } }}>
             {(!fixed || lineas.length > 1) ? (
               <Autocomplete
                 options={lineas}
@@ -214,13 +214,7 @@ export default function MapPage() {
       )}
       {selected && !loadingPuntos && puntos.length === 0 && (
         <Alert severity="info" sx={{ borderRadius: 3 }}>
-          Esta ruta no tiene paraderos/trazado disponible en la base de datos.
-        </Alert>
-      )}
-      {!config.apiUrl && (
-        <Alert severity="info" sx={{ borderRadius: 3 }}>
-          Sin <code>VITE_API_URL</code>: configura la URL del backend en <code>.env</code> (local:{' '}
-          <code>http://localhost:8080/api</code>).
+          Esta ruta no tiene paraderos/trazado cargado todavía.
         </Alert>
       )}
       <Typography variant="caption" color="text.secondary">

@@ -14,6 +14,7 @@ import type {
   PuntoControl,
   Sesion,
   SolicitudRegistro,
+  TipoSolicitud,
   Unidad,
   Usuario,
 } from '../domain/models'
@@ -139,6 +140,14 @@ export function toSesion(raw: unknown): Sesion {
   return { usuario, token }
 }
 
+function toTipoSolicitud(value: unknown): TipoSolicitud | undefined {
+  const tipo = (text(value) ?? '').toUpperCase()
+  if (tipo === 'CHOFER' || tipo === 'DRIVER') return 'CHOFER'
+  if (tipo === 'CAMBIO_RUTA' || tipo === 'CAMBIO RUTA') return 'CAMBIO_RUTA'
+  if (tipo === 'JEFE_RUTA' || tipo === 'JEFE RUTA' || tipo === 'JEFE') return 'JEFE_RUTA'
+  return undefined
+}
+
 function toEstadoSolicitud(value: unknown): EstadoSolicitud {
   const estado = (text(value) ?? 'PENDIENTE').toUpperCase()
   if (estado === 'APROBADA' || estado === 'APROBADO' || estado === 'APPROVED') return 'APROBADA'
@@ -155,6 +164,7 @@ export function toSolicitudRegistro(raw: unknown): SolicitudRegistro {
     telefono: text(record.telefono ?? record.phone),
     placaNumero: text(record.placaNumero ?? record.placa_numero ?? record.plateNumber ?? record.plate_number ?? record.placa),
     rutaTrabajo: text(record.rutaTrabajo ?? record.ruta_trabajo ?? record.workRoute ?? record.work_route ?? record.ruta),
+    tipo: toTipoSolicitud(record.tipo ?? record.tipoSolicitud ?? record.tipo_solicitud ?? record.role ?? record.rol),
     estado: toEstadoSolicitud(record.estado ?? record.status),
     usuarioAsignado: text(record.usuarioAsignado ?? record.usuario_asignado ?? record.assignedUsername ?? record.assigned_username),
     creadoEn: text(record.creadoEn ?? record.creado_en ?? record.createdAt ?? record.created_at),

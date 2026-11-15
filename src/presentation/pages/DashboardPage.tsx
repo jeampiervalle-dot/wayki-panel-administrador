@@ -44,7 +44,8 @@ export default function DashboardPage({ onNavigate }: { onNavigate: (view: View)
     <Stack spacing={2.5}>
       <Typography variant="h4">Panel de control</Typography>
       <Typography color="text.secondary">
-        Administración central (root): cuentas, rutas, unidades y mapa conectados a tu VPS.
+        Administración central (root): cuentas, rutas, unidades y mapa con datos locales de
+        demostración, sin backend.
       </Typography>
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
@@ -65,9 +66,9 @@ export default function DashboardPage({ onNavigate }: { onNavigate: (view: View)
 
       <Card>
         <CardContent>
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
             <CheckCircleIcon color={estado.error ? 'warning' : 'success'} />
-            <Typography variant="h6">Estado del backend</Typography>
+            <Typography variant="h6">Estado de los datos</Typography>
             <Box sx={{ flex: 1 }} />
             <Button size="small" startIcon={<RefreshIcon />} onClick={estado.reload}>
               Actualizar

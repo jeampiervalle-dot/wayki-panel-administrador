@@ -1,89 +1,152 @@
-# Wayki Nest — Panel de Administración
+<div align="center">
 
-Panel web para revisar solicitudes de registro enviadas desde la app móvil, aprobar/rechazar cuentas y asignar el identificador de acceso con el que el conductor creará su PIN único.
+# 🚌 Wayki Nest · Panel Administrador
 
-- **UI:** Material Design 3 (tema MUI, esquinas expresivas, tipografía Roboto Flex).
-- **Estado actual:** conectado a un backend REST (ver `.env`). La sesión se guarda en `localStorage`.
-- **Verificación:** DNI + nombre ingresados manualmente (sin autocompletado RENIEC). La cuenta se activa solo tras aprobación del admin, revisada en horario laboral (no 24/7).
+**Interfaz React del panel de administración de rutas, combis y cuentas.**
+Solo front · datos locales · sin backend.
 
-## Documentación
+![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![MUI](https://img.shields.io/badge/MUI-9-007FFF?style=for-the-badge&logo=mui&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white)
 
-- **[docs/COMO-FUNCIONA.md](docs/COMO-FUNCIONA.md)** — qué hace cada pantalla,
-  cómo se conecta al backend, contrato de endpoints, limitaciones conocidas y
-  cómo extender el panel.
-- **[DEPLOY_VPS.md](DEPLOY_VPS.md)** — cómo implementar/desplegar el panel y el backend Spring en un VPS usando la base de datos del VPS (paso a paso, configuración y checklist).
+![Sin backend](https://img.shields.io/badge/backend-ninguno-2E7D32?style=flat-square)
+![Datos locales](https://img.shields.io/badge/datos-localStorage-C77700?style=flat-square)
+![Mapa](https://img.shields.io/badge/mapa-OpenStreetMap-7C6BC4?style=flat-square)
 
-## Ejecutar
+<img src="docs/demo.gif" alt="Demostración del panel" width="820" />
+
+<sub>Admin aprueba jefes de ruta · Jefe aprueba choferes · El chofer solo usa la app</sub>
+
+</div>
+
+---
+
+## 📖 ¿Qué es esto?
+
+Panel web para administrar el sistema de transporte **Wayki Nest**. Reproduce el
+flujo real de aprobaciones con **datos locales**, así que puedes probar todo sin
+levantar un backend.
+
+- **Admin**: aprueba jefes de ruta y cambios de ruta, gestiona cuentas, rutas y unidades.
+- **Jefe de ruta**: aprueba a los choferes de su línea, gestiona sus combis y consulta el mapa.
+- **Chofer**: no entra al panel. Se registra en la app móvil y **crea su PIN allí**.
+
+> 🎯 El PIN del chofer nunca se muestra ni se edita en el panel.
+
+## 🔐 Roles y flujo
+
+| Rol | Se registra en | Aprueba | Entra al panel |
+| --- | --- | --- | :---: |
+| **Admin** | — | Jefes de ruta y cambios de ruta | ✅ |
+| **Jefe de ruta** | Panel (*Crear cuenta*) o app | Choferes de su ruta | ✅ |
+| **Chofer** | App móvil (crea su PIN) | — | ❌ |
+
+```mermaid
+flowchart LR
+    A[Chofer en la app] -->|crea PIN| B[Solicitud CHOFER]
+    B --> C[Jefe de su ruta]
+    C -->|aprobar| D[Acceso a la app]
+    E[Candidato a jefe] --> F[Solicitud JEFE_RUTA]
+    F --> G[Admin]
+    G -->|aprobar| H[Acceso al panel]
+```
+
+## 🚀 Empezar
 
 ```bash
-cd "~/panel adminnistrador"
 npm install
-npm run dev
+npm run dev      # http://localhost:5173
+npm run build    # build de producción
+npm run preview  # servir el build
 ```
 
-Compilar para producción:
+### Credenciales de demostración
 
-```bash
-npm run build
-npm run preview
-```
+| Rol | DNI | PIN |
+| --- | --- | --- |
+| Admin | `12345678` | `1234` |
+| Jefe de ruta | `87654321` | `1234` |
 
-## Arquitectura
+Los choferes de ejemplo (`41111111`, `42222222`, `43333333`) existen para mostrar
+los datos de la app: **el panel rechaza su inicio de sesión**.
 
-El código está separado en capas con dependencias en una sola dirección:
-**presentación → aplicación → dominio**, y **datos → dominio**. La UI nunca
-importa `fetch`, `localStorage` ni conoce un backend concreto.
+## 🖼️ Capturas
 
-```
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/01-login.png" alt="Login con credenciales demo" /></td>
+    <td width="50%"><img src="docs/screenshots/02-admin-inicio.png" alt="Inicio del administrador" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/03-admin-solicitudes.png" alt="Admin: altas de jefes de ruta" /></td>
+    <td><img src="docs/screenshots/06-admin-rutas.png" alt="Rutas y líneas" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/07-admin-unidades.png" alt="Unidades de la flota" /></td>
+    <td><img src="docs/screenshots/05-admin-cuentas.png" alt="Cuentas" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/08-jefe-inicio.png" alt="Inicio del jefe de ruta" /></td>
+    <td><img src="docs/screenshots/09-jefe-solicitudes.png" alt="Jefe: altas de choferes de su ruta" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/10-jefe-choferes.png" alt="Mis choferes" /></td>
+    <td><img src="docs/screenshots/11-jefe-combis.png" alt="Combis de mi ruta" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/04-admin-mapa.jpg" alt="Mapa de rutas y paraderos" /></td>
+    <td><img src="docs/screenshots/12-jefe-mapa.jpg" alt="Mapa de mi ruta" /></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshots/13-jefe-ajustes.png" alt="Ajustes y cambio de ruta" /></td>
+  </tr>
+</table>
+
+## 🏗️ Arquitectura
+
+```text
 src/
-├── domain/                 # Núcleo puro: no depende de React ni de fetch
-│   ├── models.ts           # Entidades (Linea, Unidad, Usuario, Sesion...)
-│   ├── ports.ts            # Contratos de repositorios (interfaces)
-│   └── errors.ts           # AppError y normalización de mensajes
-│
-├── data/                   # Infraestructura: implementa los puertos
-│   ├── httpClient.ts       # Único cliente HTTP (URL base, JSON, errores)
-│   ├── mappers.ts          # DTO del backend → modelo de dominio
-│   ├── sessionStore.ts     # Persistencia de sesión (localStorage)
-│   └── repositories/       # Adaptadores HTTP por recurso
-│
-├── application/            # Casos de uso (hooks) que orquestan los puertos
-│   ├── useAsync.ts         # loading/error/data/reload reutilizable
-│   ├── auth/useAuth.ts     # Login, registro y cierre de sesión
-│   ├── useLineas.ts        # Listar/crear/actualizar/eliminar rutas
-│   ├── useUnidades.ts      # Listar/crear/eliminar unidades
-│   ├── useUsuarios.ts      # Listar/cambiar rol/eliminar cuentas
-│   ├── useEstado.ts        # Estado del backend
-│   ├── useMapa.ts          # Líneas + puntos de control + selección
-│   └── usePortalConductor.ts
-│
-├── app/                    # Composition root
-│   ├── App.tsx             # Providers + router de vistas
-│   ├── dependencies.ts     # Elige implementaciones concretas (DI)
-│   ├── providers.tsx       # Contextos de dependencias y sesión
-│   └── navigation.ts       # Tipo View
-│
-├── presentation/           # React + MUI (solo UI)
-│   ├── layout/             # AppBar, Drawer, navegación
-│   ├── pages/              # Una página por vista
-│   └── components/         # Piezas reutilizables (PageHeader, FeedbackAlert)
-│
-├── config.ts               # Variables de entorno (VITE_API_URL, VITE_MAPBOX_TOKEN)
-├── theme.ts                # Tema MUI
-└── main.tsx                # Punto de entrada
+├── app/            composición, navegación y providers
+├── application/    hooks (casos de uso de la UI)
+├── domain/         modelos y puertos (sin React ni red)
+├── data/
+│   ├── mappers.ts      normalización de datos
+│   ├── sessionStore.ts sesión en localStorage
+│   ├── rutasCuradas.ts subrutas SIT/C2–C11
+│   └── mock/           semilla, persistencia y repositorios locales
+└── presentation/   páginas, layout y componentes MUI
 ```
 
-### Reglas para que no vuelva a ser espagueti
+La UI depende **solo de los puertos** de `src/domain/ports.ts`. Para conectar un
+backend real basta con implementar repositorios HTTP y cambiarlos en
+`src/app/dependencies.ts`.
 
-1. **La UI no llama a la API.** Las páginas usan hooks de `application/`, nunca `fetch` ni `backend`.
-2. **Los endpoints viven en `data/repositories/`.** Para cambiar una ruta del backend se toca un solo archivo.
-3. **Los contratos viven en `domain/ports.ts`.** Si mañana cambias REST por Supabase, solo reescribes los repositorios.
-4. **Los modelos no usan `any`.** Los DTO variables se normalizan en `data/mappers.ts`.
-5. **Una página = una responsabilidad.** Si una vista crece, se extraen componentes a `presentation/components/`.
-6. **La composición se hace en `app/dependencies.ts`.** Nada más instancia repositorios.
+## 🧠 Cómo se guardan los datos
 
-## Integración con el backend
+| Clave en `localStorage` | Contenido |
+| --- | --- |
+| `react-interfaz-panel:db` | rutas, unidades, cuentas, solicitudes y credenciales |
+| `react_interfaz_panel_session` | sesión activa |
 
-1. Backend: tabla `registration_requests` (`dni`, `full_name`, `phone`, `plate_number`, `work_route`, `status` `PENDIENTE|APROBADA|RECHAZADA`, `assigned_username`, timestamps, evidencia opcional) y usuarios aprobados; endpoints protegidos por rol.
-2. Configura la URL real en `.env` (`VITE_API_URL`) y ajusta las rutas en `src/data/repositories/`.
-3. App móvil (KMP): el registro crea una solicitud `PENDIENTE` (DNI + nombre manual, placa, ruta con aviso de cambio en Ajustes). Login: “¿Eres &lt;nombre&gt;?” → “Cambiar de usuario” → DNI → confirmar nombre → PIN. Validar cuenta `APROBADA` antes de crear/ingresar PIN.
+Se puede reiniciar la demo desde DevTools → Application → Local Storage
+borrando ambas claves y recargando.
+
+## 📚 Documentación
+
+- [Casos de uso y flujo de funcionamiento](docs/CASOS_DE_USO.md) — actores,
+  matriz de permisos, 17 casos de uso detallados, estados y diagramas.
+
+## 🗺️ Roadmap
+
+- [ ] Repositorios HTTP y backend real (JWT).
+- [ ] PIN hasheado y validado en servidor (el panel nunca lo recibe).
+- [ ] Notificaciones al jefe cuando llega una solicitud de chofer.
+- [ ] Búsqueda y paginación en los listados.
+- [ ] Auditoría de aprobaciones y cambios de rol.
+
+---
+
+<div align="center">
+  <sub>Hecho con React, MUI y mucho ☕ para Wayki Nest.</sub>
+</div>

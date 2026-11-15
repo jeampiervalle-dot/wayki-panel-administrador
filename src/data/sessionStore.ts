@@ -7,7 +7,7 @@ import type { Sesion } from '../domain/models'
 import type { SessionStore } from '../domain/ports'
 import { toUsuario } from './mappers'
 
-const SESSION_KEY = 'wayki_admin_session'
+const SESSION_KEY = 'react_interfaz_panel_session'
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 

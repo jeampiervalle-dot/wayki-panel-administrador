@@ -20,7 +20,7 @@ function StatCard({ icon, label, value }: { icon: ReactNode; label: string; valu
   return (
     <Card sx={{ flex: 1 }}>
       <CardContent>
-        <Stack direction="row" spacing={1.5} alignItems="center">
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
           <Avatar sx={{ bgcolor: 'primary.main' }}>{icon}</Avatar>
           <Box>
             <Typography variant="h5">{value}</Typography>
@@ -57,15 +57,15 @@ export default function JefeDashboardPage() {
         Panel del jefe de ruta: solicitudes de choferes, asignación de combis y estado de tu línea.
       </Typography>
 
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
         <Chip label={usuario?.lineaNombre ? `Línea: ${usuario.lineaNombre}` : 'Línea: no asignada'} color="primary" />
         {usuario?.lineaId != null && <Chip label={`ID ${usuario.lineaId}`} variant="outlined" />}
       </Stack>
 
       {sinAlcance && (
         <Alert severity="info" sx={{ borderRadius: 3 }}>
-          Tu cuenta aún no tiene una <code>lineaId</code> asociada en el backend. Los conteos se muestran de forma
-          general; cuando el backend asigne tu línea, se filtrarán automáticamente a tu ruta.
+          Tu cuenta aún no tiene una línea asociada. Los conteos se muestran de forma general;
+          cuando el administrador te asigne una ruta, se filtrarán automáticamente.
         </Alert>
       )}
 

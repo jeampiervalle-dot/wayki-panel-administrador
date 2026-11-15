@@ -198,7 +198,7 @@ export default function AdminLayout({
             color="text.secondary"
             sx={{ display: 'block', mt: 1, px: 1 }}
           >
-            API: {config.apiUrl || '(no configurada)'} · Mapa:{' '}
+            Datos: {config.apiUrl} · Mapa:{' '}
             {config.mapboxToken ? 'Mapbox' : 'OSM'}
           </Typography>
         </Box>
