@@ -144,3 +144,4 @@ borrando ambas claves y recargando.
 - [ ] Notificaciones al jefe cuando llega una solicitud de chofer.
 - [ ] Búsqueda y paginación en los listados.
 - [ ] Auditoría de aprobaciones y cambios de rol.
+soytito
