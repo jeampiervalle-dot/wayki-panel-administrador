@@ -65,8 +65,8 @@ npm run preview  # servir el build
 
 | Rol | DNI | PIN |
 | --- | --- | --- |
-| Admin | `12345678` | `1234` |
-| Jefe de ruta | `87654321` | `1234` |
+| Admin | `12345678` | `123456` |
+| Jefe de ruta | `87654321` | `123456` |
 
 Los choferes de ejemplo (`41111111`, `42222222`, `43333333`) existen para mostrar
 los datos de la app: **el panel rechaza su inicio de sesión**.
