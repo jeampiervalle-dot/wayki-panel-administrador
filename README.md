@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🚌 Wayki Nest · Panel Administrador
+# Wayki Nest · Panel Administrador
 
 **Interfaz React del panel de administración de rutas, combis y cuentas.**
 Solo front · datos locales · sin backend.
