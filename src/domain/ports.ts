@@ -50,7 +50,7 @@ export interface EstadoRepository {
 }
 
 export interface SolicitudesRepository {
-  listar(): Promise<SolicitudRegistro[]>
+  listar(rol?: string, lineaId?: number): Promise<SolicitudRegistro[]>
   aprobar(id: number | string, usuarioAsignado?: string): Promise<SolicitudRegistro>
   rechazar(id: number | string): Promise<SolicitudRegistro>
 }

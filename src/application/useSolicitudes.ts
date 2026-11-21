@@ -3,8 +3,8 @@ import type { SolicitudRegistro } from '../domain/models'
 import type { SolicitudesRepository } from '../domain/ports'
 import { useAsync } from './useAsync'
 
-export function useSolicitudes(repo: SolicitudesRepository) {
-  const query = useAsync(() => repo.listar(), [repo])
+export function useSolicitudes(repo: SolicitudesRepository, rol?: string, lineaId?: number) {
+  const query = useAsync(() => repo.listar(rol, lineaId), [repo, rol, lineaId])
   const { reload } = query
 
   const aprobar = useCallback(

@@ -41,12 +41,15 @@ function codigoRuta(texto?: string): string | null {
 export default function SolicitudesPage() {
   const { sesion } = useSession()
   const { solicitudes: solicitudesRepo } = useDependencies()
-  const { solicitudes, loading, error, reload, aprobar, rechazar } = useSolicitudes(solicitudesRepo)
-  const [msg, setMsg] = useState<string | null>(null)
-  const [busyId, setBusyId] = useState<string | number | null>(null)
-
   const rol = sesion?.usuario.rol
   const esJefe = rol === 'JEFE_RUTA'
+  const { solicitudes, loading, error, reload, aprobar, rechazar } = useSolicitudes(
+    solicitudesRepo,
+    rol,
+    esJefe ? sesion?.usuario.lineaId : undefined,
+  )
+  const [msg, setMsg] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | number | null>(null)
   const miCodigo =
     codigoRuta(sesion?.usuario.lineaNombre) ??
     (sesion?.usuario.lineaId != null ? `C${sesion.usuario.lineaId}` : null)
