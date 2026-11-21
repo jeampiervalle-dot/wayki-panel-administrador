@@ -297,7 +297,7 @@ export function createMemorySolicitudesRepository(): SolicitudesRepoLocal {
   }
 
   return {
-    async listar(): Promise<SolicitudRegistro[]> {
+    async listar(_rol?: string, _lineaId?: number): Promise<SolicitudRegistro[]> {
       return clonar(getDb().solicitudes)
     },
 
