@@ -3,6 +3,27 @@ import { config } from '../../config'
 
 export const API_URL = (config.apiUrl || 'http://localhost:8000/api').replace(/\/+$/, '')
 
+const SESSION_KEY = 'react_interfaz_panel_session'
+
+let authToken: string | null = null
+
+function leerTokenDeSesion(): string | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { token?: string }
+    return typeof parsed.token === 'string' ? parsed.token : null
+  } catch {
+    return null
+  }
+}
+
+authToken = leerTokenDeSesion()
+
+export function setAuthToken(token: string | null): void {
+  authToken = token
+}
+
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response
   try {
@@ -11,6 +32,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         ...(init?.headers ?? {}),
       },
     })
