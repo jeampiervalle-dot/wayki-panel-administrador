@@ -9,6 +9,8 @@ export interface AuthState {
   cerrarSesion: () => void
 }
 
+import { setAuthToken } from '../../data/http/client'
+
 export function useAuth(auth: AuthRepository, sessionStore: SessionStore): AuthState {
   const [sesion, setSesion] = useState<Sesion | null>(() => sessionStore.leer())
 
@@ -16,6 +18,7 @@ export function useAuth(auth: AuthRepository, sessionStore: SessionStore): AuthS
     async (credenciales: Credenciales) => {
       const nueva = await auth.iniciarSesion(credenciales)
       sessionStore.guardar(nueva)
+      setAuthToken(nueva.token ?? null)
       setSesion(nueva)
       return nueva
     },
@@ -31,6 +34,7 @@ export function useAuth(auth: AuthRepository, sessionStore: SessionStore): AuthS
 
   const cerrarSesion = useCallback(() => {
     sessionStore.limpiar()
+    setAuthToken(null)
     setSesion(null)
   }, [sessionStore])
 

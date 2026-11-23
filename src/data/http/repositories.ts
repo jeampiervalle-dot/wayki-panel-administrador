@@ -20,7 +20,7 @@ import type {
 } from '../../domain/ports'
 import type { SolicitudesRepoLocal } from '../../data/mock/memoryRepositories'
 import { assertSuccess, toLinea, toList, toPuntoControl, toSesion, toSolicitudRegistro, toUnidad, toUsuario } from '../mappers'
-import { request } from './client'
+import { request, setAuthToken } from './client'
 
 export function createHttpAuthRepository(): AuthRepository {
   return {
@@ -29,7 +29,9 @@ export function createHttpAuthRepository(): AuthRepository {
         method: 'POST',
         body: JSON.stringify({ dni: credenciales.dni, pin: credenciales.pin }),
       })
-      return toSesion(data)
+      const sesion = toSesion(data)
+      setAuthToken(sesion.token ?? null)
+      return sesion
     },
     async registrar(datos: NuevoUsuario): Promise<void> {
       const data = await request<unknown>('/auth/registro', {
