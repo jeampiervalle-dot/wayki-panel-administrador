@@ -64,14 +64,14 @@ npm run preview  # servir el build
 
 ### Conexión con el backend
 
-La URL se define en `.env.local` (no versionada):
+La URL se define en `.env` (versionado, sin secretos):
 
 ```env
 VITE_API_URL=http://31.220.72.2:8000/api        # backend Django (negocio + BD)
 VITE_RUTAS_API_URL=http://31.220.72.2:8080/api  # backend Java (catálogo y mapa)
 ```
 
-Si no hay `.env.local`, se usan `http://localhost:8000/api` y
+Si no hay `.env`, se usan `http://localhost:8000/api` y
 `http://localhost:8080/api` como valores por defecto.
 
 El cableado está en `src/app/dependencies.ts`: todos los repositorios son
