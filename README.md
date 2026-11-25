@@ -72,7 +72,8 @@ VITE_RUTAS_API_URL=http://31.220.72.2:8080/api  # backend Java (catálogo y mapa
 ```
 
 Si no hay `.env`, se usan `http://localhost:8000/api` y
-`http://localhost:8080/api` como valores por defecto.
+`http://localhost:8080/api` como valores por defecto. Hay un `.env.example` con
+todas las variables disponibles, incluidos los tokens opcionales del mapa.
 
 El cableado está en `src/app/dependencies.ts`: todos los repositorios son
 implementaciones HTTP (`src/data/http/repositories.ts`) que llaman a los
