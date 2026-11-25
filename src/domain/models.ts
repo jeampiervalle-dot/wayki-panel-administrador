@@ -26,12 +26,97 @@ export interface PuntoControl {
   toleranciaMinutos?: number
 }
 
+/** Subruta del backend Spring (catálogo que también usa la app móvil). */
+export interface SubrutaCatalogo {
+  id: number
+  codigo: string
+  nombre: string
+  nombreRetorno?: string
+  operador?: string
+  colorHex?: string
+  routeIdIda: string
+  routeIdRetorno: string
+  activa?: boolean
+}
+
+export interface LineaCatalogo {
+  codigo: string
+  nombre: string
+  colorHex?: string
+  subrutas: SubrutaCatalogo[]
+}
+
+export interface CatalogoRutas {
+  lineas: LineaCatalogo[]
+}
+
+export type SentidoRuta = 'IDA' | 'RETORNO'
+
+/** Ruta del catálogo de SmartBus (Arequipa). */
+export interface RutaSmartBus {
+  id: string
+  shortName: string
+  longName: string
+  agency: { id: string; name: string }
+  color: string
+  textColor?: string
+  stopsCount: number
+  /** ID de la ruta inversa cuando el backend lo expone. */
+  routeIdRetorno?: string | null
+  /** Id numérico de la subruta en gowayki_db (viene en /rutas/catalogo). */
+  subrutaDbId?: string
+  /** Código de la subruta en el catálogo (dto.codigo). */
+  subrutaCodigo?: string
+  /** Datos de servicio (si el backend los expone). */
+  nombre?: string
+  from?: string
+  to?: string
+  network?: string
+  charge?: string
+  interval?: string
+  durationMin?: number
+  schedule?: string
+  checkPoint?: string
+  distanceKm?: number
+}
+
+export interface ParaderoSmartBus {
+  id: string
+  name: string
+  lat: number
+  lng: number
+  sequence: number
+}
+
+/** Detalle de una ruta: geometría real y paraderos en orden. */
+export interface DetalleRutaSmartBus extends RutaSmartBus {
+  geometry: [number, number][]
+  stops: ParaderoSmartBus[]
+}
+
+export interface GrupoRutas {
+  key: string
+  codigo: string
+  empresa: string
+  rutas: RutaSmartBus[]
+}
+
 export interface PosicionGps {
   lat?: number
   lng?: number
   velocidadKmh?: number
   rumboGrados?: number
   ultimaActualizacion?: string
+}
+
+export interface TurnoActivo {
+  id: string
+  unidadId?: number
+  choferId?: string
+  choferNombre?: string
+  subrutaId?: number
+  subrutaNombre?: string
+  estado?: string
 }
 
 export interface Unidad {
@@ -42,6 +127,9 @@ export interface Unidad {
   lineaNombre?: string
   estado?: string
   posicionActual?: PosicionGps | null
+  /** Subruta SmartBus elegida para la combi. */
+  subrutaId?: string
+  nombreSubruta?: string
 }
 
 export interface Usuario {
@@ -56,6 +144,11 @@ export interface Usuario {
   /** Línea asociada (JEFE_RUTA/CHOFER). */
   lineaId?: number
   lineaNombre?: string
+  /** Subruta elegida al crear la cuenta (jefe de ruta). */
+  subrutaId?: string
+  /** Id numérico de esa subruta en gowayki_db (para cruzar con /unidades). */
+  subrutaDbId?: string
+  nombreSubruta?: string
 }
 
 export interface Sesion {
@@ -78,6 +171,12 @@ export interface NuevoUsuario {
   fotoUrl?: string
   /** Ruta/línea seleccionada al registrarse (p. ej. JEFE_RUTA). */
   lineaId?: number
+  nombreLinea?: string
+  /** Subruta seleccionada dentro de esa línea (routeId SmartBus). */
+  subrutaId?: string
+  subrutaDbId?: string
+  nombreSubruta?: string
+  codigoLinea?: string
 }
 
 export interface DatosLinea {
@@ -93,6 +192,13 @@ export interface DatosUnidad {
   placa?: string
   lineaId?: number
   estado?: string
+  /** Subruta a la que se asigna la combi. */
+  subrutaId?: string
+  /** Id numérico de gowayki_db: es el que persiste el backend y usa la app. */
+  subrutaDbId?: string
+  /** Código/routeId del catálogo que la app móvil usa para elegir la ruta. */
+  subrutaCodigo?: string
+  nombreSubruta?: string
 }
 
 export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA'
@@ -110,6 +216,9 @@ export interface SolicitudRegistro {
   tipo?: TipoSolicitud
   estado: EstadoSolicitud
   usuarioAsignado?: string
+  lineaSolicitadaId?: number
+  subrutaSolicitadaId?: number
+  usuarioId?: string
   creadoEn?: string
   actualizadoEn?: string
 }

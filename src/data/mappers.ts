@@ -107,6 +107,8 @@ export function toUnidad(raw: unknown): Unidad {
     lineaNombre: text(record.lineaNombre ?? record.linea_nombre) ?? text(linea.nombre),
     estado: text(record.estado),
     posicionActual: posicionRaw ? toPosicionGps(posicionRaw) : null,
+    subrutaId: text(record.subrutaId ?? record.subruta_id),
+    nombreSubruta: text(record.nombreSubruta ?? record.nombre_subruta),
   }
 }
 
@@ -124,6 +126,11 @@ export function toUsuario(raw: unknown): Usuario {
     isOnline: bool(record.isOnline ?? record.is_online),
     lineaId: num(record.lineaId ?? record.linea_id) ?? num(linea.id),
     lineaNombre: text(record.lineaNombre ?? record.linea_nombre) ?? text(linea.nombre),
+    subrutaId: text(record.subrutaId ?? record.subruta_id),
+    subrutaDbId: text(record.subrutaDbId ?? record.subruta_db_id) ?? undefined,
+    nombreSubruta: text(
+      record.nombreSubruta ?? record.nombre_subruta ?? record.subrutaNombre,
+    ),
   }
 }
 
@@ -167,6 +174,9 @@ export function toSolicitudRegistro(raw: unknown): SolicitudRegistro {
     tipo: toTipoSolicitud(record.tipo ?? record.tipoSolicitud ?? record.tipo_solicitud ?? record.role ?? record.rol),
     estado: toEstadoSolicitud(record.estado ?? record.status),
     usuarioAsignado: text(record.usuarioAsignado ?? record.usuario_asignado ?? record.assignedUsername ?? record.assigned_username),
+    lineaSolicitadaId: num(record.lineaSolicitadaId ?? record.linea_solicitada_id) ?? undefined,
+    subrutaSolicitadaId: num(record.subrutaSolicitadaId ?? record.subruta_solicitada_id) ?? undefined,
+    usuarioId: text(record.usuarioId ?? record.usuario_id) ?? undefined,
     creadoEn: text(record.creadoEn ?? record.creado_en ?? record.createdAt ?? record.created_at),
     actualizadoEn: text(record.actualizadoEn ?? record.actualizado_en ?? record.updatedAt ?? record.updated_at),
   }

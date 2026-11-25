@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { createDependencies } from './dependencies'
 import { DependenciesProvider, SessionProvider, useSession } from './providers'
 import type { View } from './navigation'
@@ -33,25 +33,39 @@ function allowedViewsFor(rol: string): View[] {
     return ['inicio', 'solicitudes', 'mis-choferes', 'combis', 'mapa', 'ajustes']
   }
   // ADMIN (y fallback global)
-  return ['inicio', 'solicitudes', 'mapa', 'cuentas', 'rutas', 'unidades']
+  return ['inicio', 'solicitudes', 'mapa', 'cuentas', 'rutas', 'unidades', 'ajustes']
 }
 
 function AppContent() {
   const { sesion } = useSession()
-  const [view, setView] = useState<View>('inicio')
-
   const rol = sesion?.usuario.rol ?? 'ADMIN'
   const allowed = useMemo(() => allowedViewsFor(rol), [rol])
 
-  useEffect(() => {
-    if (!allowed.includes(view)) setView('inicio')
-  }, [allowed, view])
+  // La vista inicial puede compartirse con ?v=mapa, ?v=cuentas, etc.
+  const [view, setView] = useState<View>(() => {
+    const parametro = new URLSearchParams(window.location.search).get('v') as View | null
+    return parametro && allowed.includes(parametro) ? parametro : 'inicio'
+  })
+
+  // La vista válida se deriva del rol: nunca se muestra una pantalla no
+  // permitida, sin necesidad de sincronizar estado en un efecto.
+  const vista = allowed.includes(view) ? view : 'inicio'
+  const navegar = useCallback(
+    (next: View) => {
+      const destino = allowed.includes(next) ? next : 'inicio'
+      setView(destino)
+      const url = new URL(window.location.href)
+      url.searchParams.set('v', destino)
+      window.history.replaceState(null, '', url)
+    },
+    [allowed],
+  )
 
   if (!sesion) return <LoginPage />
 
   return (
-    <AdminLayout view={view} onNavigate={setView}>
-      <ViewRouter view={view} onNavigate={setView} rol={rol} />
+    <AdminLayout view={vista} onNavigate={navegar}>
+      <ViewRouter view={vista} onNavigate={navegar} rol={rol} />
     </AdminLayout>
   )
 }
@@ -69,17 +83,18 @@ function ViewRouter({
 
   switch (view) {
     case 'inicio':
-      return isJefe ? <JefeDashboardPage /> : <DashboardPage onNavigate={onNavigate} />
+      return isJefe ? <JefeDashboardPage onNavigate={onNavigate} /> : <DashboardPage onNavigate={onNavigate} />
     case 'mapa':
       return <MapPage />
     case 'solicitudes':
       return <SolicitudesPage />
+    // Estas vistas no están en allowedViewsFor('JEFE_RUTA'): solo admin.
     case 'cuentas':
-      return isJefe ? <JefeDashboardPage /> : <CuentasPage />
+      return <CuentasPage />
     case 'rutas':
-      return isJefe ? <JefeDashboardPage /> : <RutasPage />
+      return <RutasPage />
     case 'unidades':
-      return isJefe ? <JefeDashboardPage /> : <UnidadesPage />
+      return <UnidadesPage />
     case 'mis-choferes':
       return <MisChoferesPage />
     case 'combis':
@@ -87,6 +102,6 @@ function ViewRouter({
     case 'ajustes':
       return <AjustesPage />
     default:
-      return isJefe ? <JefeDashboardPage /> : <DashboardPage onNavigate={onNavigate} />
+      return isJefe ? <JefeDashboardPage onNavigate={onNavigate} /> : <DashboardPage onNavigate={onNavigate} />
   }
 }

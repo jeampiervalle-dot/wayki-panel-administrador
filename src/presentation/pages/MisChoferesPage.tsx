@@ -2,76 +2,96 @@ import {
   Alert,
   Avatar,
   Box,
-  Card,
-  CardContent,
-  Chip,
   CircularProgress,
   Stack,
   Typography,
 } from '@mui/material'
+import GroupsIcon from '@mui/icons-material/GroupsRounded'
 import { useUsuarios } from '../../application/useUsuarios'
 import { useDependencies, useSession } from '../../app/providers'
+import { subrutaStore } from '../../data/subrutaStore'
 import { PageHeader } from '../components/PageHeader'
+import { EmptyState } from '../components/EmptyState'
+import { ListPanel, ListRow } from '../components/ListRow'
+import { StatusChip } from '../components/StatusChip'
 
 export default function MisChoferesPage() {
   const { sesion } = useSession()
   const { usuarios: usuariosRepo } = useDependencies()
   const { usuarios, loading, error, reload } = useUsuarios(usuariosRepo)
 
-  const lineaId = sesion?.usuario.lineaId
+  const usuario = sesion?.usuario
+  const lineaId = usuario?.lineaId
+  const guardada = usuario?.dni ? subrutaStore.leerUsuario(usuario.dni) : null
+  const subrutaId =
+    usuario?.subrutaDbId ?? guardada?.subrutaDbId ?? guardada?.subrutaId ?? usuario?.subrutaId
+
   let choferes = usuarios.filter((u) => u.rol === 'CHOFER')
   if (lineaId != null) choferes = choferes.filter((u) => u.lineaId === lineaId)
+  // Solo se aplica el filtro por subruta si el backend entrega ese dato en
+  // las cuentas; si no, mostraríamos una lista vacía engañosa.
+  const haySubrutaEnDatos = choferes.some((u) => u.subrutaDbId || u.subrutaId)
+  if (subrutaId && haySubrutaEnDatos) {
+    choferes = choferes.filter((u) => {
+      const subrutaChofer = u.subrutaDbId ?? u.subrutaId
+      return !subrutaChofer || String(subrutaChofer) === String(subrutaId)
+    })
+  }
 
   return (
-    <Stack spacing={2}>
-      <PageHeader title="Mis choferes" onRefresh={reload} />
-      <Typography color="text.secondary">
-        Choferes de tu ruta. Los datos son locales: puedes agregar o editar combis y el alcance por
-        línea se toma de tu cuenta.
-      </Typography>
+    <Stack spacing={2.5}>
+      <PageHeader
+        title="Mis choferes"
+        description="Choferes dados de alta para tu línea y aprobados para operar. La asignación de combi se gestiona desde la app móvil."
+        onRefresh={reload}
+      />
 
       {lineaId == null && (
-        <Alert severity="info" sx={{ borderRadius: 3 }}>
+        <Alert severity="info">
           Sin línea asociada a tu cuenta: se muestran los choferes del sistema como referencia.
+        </Alert>
+      )}
+      {subrutaId && !haySubrutaEnDatos && (
+        <Alert severity="info">
+          El backend no informa la subruta de cada chofer, por ahora se muestran todos los de tu línea.
         </Alert>
       )}
 
       {loading ? (
-        <CircularProgress />
+        <Box sx={{ p: 6, display: 'grid', placeItems: 'center' }}><CircularProgress /></Box>
       ) : error ? (
-        <Alert severity="warning" sx={{ borderRadius: 3 }}>
-          {error}
-        </Alert>
+        <Alert severity="warning">{error}</Alert>
+      ) : choferes.length === 0 ? (
+        <EmptyState
+          titulo="No hay choferes para mostrar"
+          detalle="Cuando apruebes altas desde Solicitudes aparecerán aquí."
+          icono={<GroupsIcon />}
+        />
       ) : (
-        <Stack spacing={1.5}>
+        <ListPanel>
           {choferes.map((u) => (
-            <Card key={u.id} variant="outlined">
-              <CardContent>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
-                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-                    <Avatar sx={{ bgcolor: 'primary.main' }}>{(u.nombre || '?').slice(0, 1)}</Avatar>
-                    <Box>
-                      <Typography variant="h6">{u.nombre}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        DNI {u.dni} · {u.telefono || 's/tel'} · {u.email || 's/email'}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                  <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                    <Chip label={u.rol} />
-                    <Chip label={u.isOnline ? 'En línea' : 'Offline'} variant="outlined" />
-                    {u.lineaNombre && <Chip label={u.lineaNombre} color="primary" variant="outlined" />}
-                  </Stack>
-                </Stack>
-              </CardContent>
-            </Card>
+            <ListRow
+              key={u.id}
+              leading={
+                <Avatar sx={{ bgcolor: 'action.hover', color: 'primary.main', width: 38, height: 38, fontSize: 15 }}>
+                  {(u.nombre || '?').slice(0, 1)}
+                </Avatar>
+              }
+              title={<Typography variant="subtitle2">{u.nombre || u.dni}</Typography>}
+              subtitle={
+                <Typography variant="caption" color="text.secondary">
+                  DNI {u.dni} · {u.telefono || 's/tel'} · {u.email || 's/email'}
+                </Typography>
+              }
+              meta={
+                <>
+                  <StatusChip estado={u.isOnline ? 'EN_LINEA' : 'OFFLINE'} label={u.isOnline ? 'En línea' : 'Offline'} />
+                  {u.lineaNombre && <StatusChip estado="LINEA" label={u.lineaNombre} />}
+                </>
+              }
+            />
           ))}
-          {choferes.length === 0 && (
-            <Alert severity="info" sx={{ borderRadius: 3 }}>
-              No hay choferes para mostrar en tu ruta.
-            </Alert>
-          )}
-        </Stack>
+        </ListPanel>
       )}
     </Stack>
   )

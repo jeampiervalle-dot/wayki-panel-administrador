@@ -4,11 +4,11 @@ import {
   Avatar,
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   CircularProgress,
   Stack,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material'
 import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlineRounded'
@@ -19,14 +19,12 @@ import { toErrorMessage } from '../../domain/errors'
 import type { SolicitudRegistro, TipoSolicitud } from '../../domain/models'
 import { useSolicitudes } from '../../application/useSolicitudes'
 import { useDependencies, useSession } from '../../app/providers'
+import { subrutaStore } from '../../data/subrutaStore'
 import { FeedbackAlert } from '../components/FeedbackAlert'
 import { PageHeader } from '../components/PageHeader'
-
-function estadoColor(estado: SolicitudRegistro['estado']) {
-  if (estado === 'APROBADA') return 'success' as const
-  if (estado === 'RECHAZADA') return 'error' as const
-  return 'warning' as const
-}
+import { EmptyState } from '../components/EmptyState'
+import { ListPanel, ListRow } from '../components/ListRow'
+import { StatusChip } from '../components/StatusChip'
 
 const TIPO_LABEL: Record<TipoSolicitud, string> = {
   CHOFER: 'Chofer (app)',
@@ -34,43 +32,51 @@ const TIPO_LABEL: Record<TipoSolicitud, string> = {
   CAMBIO_RUTA: 'Cambio de ruta',
 }
 
-function codigoRuta(texto?: string): string | null {
-  return texto?.match(/\bC\d+\b/i)?.[0]?.toUpperCase() ?? null
-}
+type Filtro = 'TODAS' | 'PENDIENTE' | 'APROBADA' | 'RECHAZADA'
 
 export default function SolicitudesPage() {
   const { sesion } = useSession()
   const { solicitudes: solicitudesRepo } = useDependencies()
   const rol = sesion?.usuario.rol
   const esJefe = rol === 'JEFE_RUTA'
+  const guardada = sesion?.usuario.dni ? subrutaStore.leerUsuario(sesion.usuario.dni) : null
+  const subrutaJefe =
+    Number(
+      sesion?.usuario.subrutaDbId ??
+        guardada?.subrutaDbId ??
+        guardada?.subrutaId ??
+        sesion?.usuario.subrutaId ??
+        0,
+    ) || undefined
+  const jefeSinSubruta = esJefe && !subrutaJefe
   const { solicitudes, loading, error, reload, aprobar, rechazar } = useSolicitudes(
     solicitudesRepo,
-    rol,
-    esJefe ? sesion?.usuario.lineaId : undefined,
+    esJefe ? rol : undefined,
+    esJefe ? subrutaJefe : undefined,
+    !jefeSinSubruta,
   )
   const [msg, setMsg] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | number | null>(null)
-  const miCodigo =
-    codigoRuta(sesion?.usuario.lineaNombre) ??
-    (sesion?.usuario.lineaId != null ? `C${sesion.usuario.lineaId}` : null)
+  const [filtro, setFiltro] = useState<Filtro>('PENDIENTE')
 
-  // Cada rol aprueba solo lo suyo: el jefe los choferes de su ruta y el
-  // admin las altas de jefes de ruta y los cambios de ruta.
-  const visibles = useMemo(() => {
-    if (esJefe) {
-      return solicitudes.filter(
-        (solicitud) =>
-          solicitud.tipo === 'CHOFER' &&
-          (!miCodigo || codigoRuta(solicitud.rutaTrabajo) === miCodigo),
-      )
-    }
-    return solicitudes.filter((solicitud) => solicitud.tipo !== 'CHOFER')
-  }, [esJefe, miCodigo, solicitudes])
+  const visibles = useMemo(
+    () => (filtro === 'TODAS' ? solicitudes : solicitudes.filter((s) => s.estado === filtro)),
+    [solicitudes, filtro],
+  )
+  const conteos = useMemo(
+    () => ({
+      TODAS: solicitudes.length,
+      PENDIENTE: solicitudes.filter((s) => s.estado === 'PENDIENTE').length,
+      APROBADA: solicitudes.filter((s) => s.estado === 'APROBADA').length,
+      RECHAZADA: solicitudes.filter((s) => s.estado === 'RECHAZADA').length,
+    }),
+    [solicitudes],
+  )
 
-  const titulo = esJefe ? 'Altas de choferes' : 'Jefes de ruta'
+  const titulo = esJefe ? 'Altas de choferes' : 'Solicitudes'
   const descripcion = esJefe
-    ? 'Los choferes se registran en la app móvil y crean su PIN allí. Aprueba a los de tu ruta para que puedan iniciar sesión en la app.'
-    : 'Altas de jefes de ruta y cambios de ruta. Los choferes los aprueba el jefe de cada ruta; tú solo gestionas a los jefes.'
+    ? 'Los choferes se registran en la app móvil. Aprueba a los de tu subruta para que puedan iniciar sesión.'
+    : 'Altas de jefes de ruta, choferes y cambios de ruta pendientes de revisión.'
 
   async function handleAprobar(solicitud: SolicitudRegistro) {
     setBusyId(solicitud.id)
@@ -78,15 +84,11 @@ export default function SolicitudesPage() {
     try {
       await aprobar(solicitud.id)
       if (solicitud.tipo === 'CHOFER') {
-        setMsg(
-          `Chofer aprobado${solicitud.rutaTrabajo ? ` para ${solicitud.rutaTrabajo}` : ''}. Ya puede entrar a la app con su DNI y el PIN que creó en su registro.`,
-        )
+        setMsg(`Chofer aprobado. Ya puede entrar a la app con el PIN que creó al registrarse.`)
       } else if (solicitud.tipo === 'CAMBIO_RUTA') {
         setMsg('Cambio de ruta aprobado.')
       } else {
-        setMsg(
-          `Jefe de ruta aprobado. Ya puede ingresar al panel con su DNI y el PIN que registró.`,
-        )
+        setMsg('Jefe de ruta aprobado. Ya puede ingresar al panel.')
       }
     } catch (cause) {
       setMsg(`No se pudo aprobar: ${toErrorMessage(cause)}`)
@@ -109,101 +111,99 @@ export default function SolicitudesPage() {
   }
 
   return (
-    <Stack spacing={2}>
-      <PageHeader title={titulo} onRefresh={reload} />
-      <Typography color="text.secondary">{descripcion}</Typography>
-
+    <Stack spacing={2.5}>
+      <PageHeader title={titulo} description={descripcion} onRefresh={reload} />
       <FeedbackAlert message={msg} onClose={() => setMsg(null)} />
 
-      {loading ? (
-        <CircularProgress />
-      ) : error ? (
-        <Alert severity="warning" sx={{ borderRadius: 3 }}>
-          {error}
+      {jefeSinSubruta && (
+        <Alert severity="info">
+          Tu cuenta aún no tiene una subruta asignada. Selecciónala desde Inicio para ver las altas de choferes de tu recorrido.
         </Alert>
+      )}
+
+      <ToggleButtonGroup
+        exclusive
+        size="small"
+        value={filtro}
+        onChange={(_, valor: Filtro | null) => valor && setFiltro(valor)}
+        sx={{ alignSelf: 'flex-start', flexWrap: 'wrap' }}
+      >
+        {([
+          ['PENDIENTE', 'Pendientes'],
+          ['APROBADA', 'Aprobadas'],
+          ['RECHAZADA', 'Rechazadas'],
+          ['TODAS', 'Todas'],
+        ] as const).map(([valor, etiqueta]) => (
+          <ToggleButton key={valor} value={valor} sx={{ px: 1.5, minHeight: 34 }}>
+            {etiqueta} <Box component="span" sx={{ ml: 0.75, opacity: 0.65 }}>{conteos[valor]}</Box>
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+
+      {loading ? (
+        <Box sx={{ p: 6, display: 'grid', placeItems: 'center' }}><CircularProgress /></Box>
+      ) : error ? (
+        <Alert severity="warning">{error}</Alert>
+      ) : visibles.length === 0 ? (
+        <EmptyState
+          titulo={filtro === 'PENDIENTE' ? 'Sin solicitudes pendientes' : `No hay solicitudes ${filtro.toLowerCase()}`}
+          detalle={esJefe ? 'Las altas de choferes aparecerán aquí cuando se registren en la app.' : 'Cuando lleguen nuevas solicitudes se mostrarán en esta lista.'}
+          icono={<AssignmentIndIcon />}
+        />
       ) : (
-        <Stack spacing={1.5}>
+        <ListPanel>
           {visibles.map((solicitud) => {
             const pendiente = solicitud.estado === 'PENDIENTE'
             const busy = busyId === solicitud.id
             return (
-              <Card key={String(solicitud.id)} variant="outlined">
-                <CardContent>
-                  <Stack spacing={1.5}>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
-                      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-                        <Avatar sx={{ bgcolor: 'primary.main' }}>
-                          <AssignmentIndIcon />
-                        </Avatar>
-                        <Box>
-                          <Typography variant="h6">
-                            {solicitud.nombreCompleto || '(sin nombre)'}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            DNI {solicitud.dni || '-'} · {solicitud.telefono || 's/tel'}
-                            {solicitud.placaNumero ? ` · Placa ${solicitud.placaNumero}` : ''}
-                            {solicitud.rutaTrabajo ? ` · Ruta ${solicitud.rutaTrabajo}` : ''}
-                          </Typography>
-                          {solicitud.tipo === 'CHOFER' && (
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}
-                            >
-                              <LockIcon sx={{ fontSize: 14 }} /> PIN creado por el chofer en la app (no se
-                              muestra aquí)
-                            </Typography>
-                          )}
-                        </Box>
-                      </Stack>
-
-                      <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                        {solicitud.tipo && (
-                          <Chip
-                            label={TIPO_LABEL[solicitud.tipo]}
-                            variant="outlined"
-                            size="small"
-                            color={solicitud.tipo === 'CHOFER' ? 'primary' : 'default'}
-                          />
-                        )}
-                        <Chip label={solicitud.estado} color={estadoColor(solicitud.estado)} />
-                        {pendiente && (
-                          <>
-                            <Button
-                              size="small"
-                              color="success"
-                              startIcon={<CheckCircleIcon />}
-                              onClick={() => handleAprobar(solicitud)}
-                              disabled={busy}
-                            >
-                              Aprobar
-                            </Button>
-                            <Button
-                              size="small"
-                              color="error"
-                              startIcon={<CancelIcon />}
-                              onClick={() => handleRechazar(solicitud)}
-                              disabled={busy}
-                            >
-                              Rechazar
-                            </Button>
-                          </>
-                        )}
-                      </Stack>
-                    </Stack>
-                  </Stack>
-                </CardContent>
-              </Card>
+              <ListRow
+                key={String(solicitud.id)}
+                leading={
+                  <Avatar sx={{ bgcolor: 'action.hover', color: 'primary.main', width: 40, height: 40 }}>
+                    <AssignmentIndIcon fontSize="small" />
+                  </Avatar>
+                }
+                title={
+                  <Typography variant="subtitle2">{solicitud.nombreCompleto || '(sin nombre)'}</Typography>
+                }
+                subtitle={
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      DNI {solicitud.dni || '-'} · {solicitud.telefono || 's/tel'}
+                      {solicitud.placaNumero ? ` · Placa ${solicitud.placaNumero}` : ''}
+                      {solicitud.rutaTrabajo ? ` · Ruta ${solicitud.rutaTrabajo}` : ''}
+                    </Typography>
+                    {solicitud.tipo === 'CHOFER' && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.4 }}>
+                        <LockIcon sx={{ fontSize: 13 }} /> PIN creado en la app · no se muestra aquí
+                      </Typography>
+                    )}
+                  </Box>
+                }
+                meta={
+                  <>
+                    {solicitud.tipo && (
+                      <Chip size="small" variant="outlined" label={TIPO_LABEL[solicitud.tipo]} />
+                    )}
+                    <StatusChip estado={solicitud.estado} />
+                  </>
+                }
+                actions={
+                  pendiente ? (
+                    <>
+                      <Button size="small" variant="contained" startIcon={<CheckCircleIcon />} onClick={() => handleAprobar(solicitud)} disabled={busy}>
+                        Aprobar
+                      </Button>
+                      <Button size="small" color="error" variant="outlined" startIcon={<CancelIcon />} onClick={() => handleRechazar(solicitud)} disabled={busy}>
+                        Rechazar
+                      </Button>
+                    </>
+                  ) : undefined
+                }
+              />
             )
           })}
-          {visibles.length === 0 && (
-            <Alert severity="info" sx={{ borderRadius: 3 }}>
-              {esJefe
-                ? 'No hay solicitudes de choferes para tu ruta.'
-                : 'No hay altas de jefes de ruta ni cambios de ruta.'}
-            </Alert>
-          )}
-        </Stack>
+        </ListPanel>
       )}
     </Stack>
   )

@@ -26,9 +26,10 @@ export function useUnidades(repo: UnidadesRepository) {
   )
 
   const eliminar = useCallback(
-    async (id: number): Promise<void> => {
-      await repo.eliminar(id)
+    async (id: number): Promise<string | null> => {
+      const mensaje = await repo.eliminar(id)
       reload()
+      return mensaje
     },
     [repo, reload],
   )
