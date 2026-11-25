@@ -28,7 +28,11 @@ import type {
 import { getDb, guardarDb, type MockDb } from './db'
 
 export interface SolicitudesRepoLocal extends SolicitudesRepository {
-  crearCambioRuta(datos: { usuarioId?: string; lineaSolicitadaId?: number }): Promise<void>
+  crearCambioRuta(datos: {
+    usuarioId?: string
+    lineaSolicitadaId?: number
+    subrutaSolicitadaId?: number
+  }): Promise<void>
 }
 
 const PIN_POR_DEFECTO = '1234'
@@ -158,6 +162,16 @@ export function createMemoryUsuariosRepository(): UsuariosRepository {
       guardarDb()
     },
 
+    async actualizarSubruta(id: string, subrutaId: number): Promise<Usuario> {
+      const db = getDb()
+      const usuario = db.usuarios.find((item) => item.id === id)
+      if (!usuario) throw new AppError('La cuenta no existe.')
+      usuario.subrutaId = String(subrutaId)
+      usuario.subrutaDbId = String(subrutaId)
+      guardarDb()
+      return clonar(usuario)
+    },
+
     async eliminar(id: string): Promise<void> {
       const db = getDb()
       const usuario = db.usuarios.find((item) => item.id === id)
@@ -194,7 +208,7 @@ export function createMemoryLineasRepository(): LineasRepository {
         origen: datos.origen,
         destino: datos.destino,
         corredor: datos.corredor,
-        colorHex: datos.colorHex || '#7C6BC4',
+        colorHex: datos.colorHex || '#7B82A0',
         paraderos: [],
       }
       db.lineas.push(linea)
@@ -220,11 +234,12 @@ export function createMemoryLineasRepository(): LineasRepository {
       return clonar(linea)
     },
 
-    async eliminar(id: number): Promise<void> {
+    async eliminar(id: number): Promise<string | null> {
       const db = getDb()
       db.lineas = db.lineas.filter((item) => item.id !== id)
       db.unidades = db.unidades.filter((item) => item.lineaId !== id)
       guardarDb()
+      return null
     },
 
     async puntosControl(lineaId: number): Promise<PuntoControl[]> {
@@ -278,10 +293,11 @@ export function createMemoryUnidadesRepository(): UnidadesRepository {
       return clonar(unidad)
     },
 
-    async eliminar(id: number): Promise<void> {
+    async eliminar(id: number): Promise<string | null> {
       const db = getDb()
       db.unidades = db.unidades.filter((item) => item.id !== id)
       guardarDb()
+      return null
     },
   }
 }
@@ -297,7 +313,10 @@ export function createMemorySolicitudesRepository(): SolicitudesRepoLocal {
   }
 
   return {
-    async listar(_rol?: string, _lineaId?: number): Promise<SolicitudRegistro[]> {
+    async listar(rol?: string, subrutaId?: number): Promise<SolicitudRegistro[]> {
+      // El backend aplica estos filtros; el mock los respeta para las pruebas.
+      void rol
+      void subrutaId
       return clonar(getDb().solicitudes)
     },
 

@@ -3,8 +3,18 @@ import type { SolicitudRegistro } from '../domain/models'
 import type { SolicitudesRepository } from '../domain/ports'
 import { useAsync } from './useAsync'
 
-export function useSolicitudes(repo: SolicitudesRepository, rol?: string, lineaId?: number) {
-  const query = useAsync(() => repo.listar(rol, lineaId), [repo, rol, lineaId])
+export function useSolicitudes(
+  repo: SolicitudesRepository,
+  rol?: string,
+  subrutaId?: number,
+  habilitado = true,
+) {
+  // Un jefe sin subruta resuelta no debe consultar el catálogo completo: se
+  // devuelve una lista vacía sin llegar al backend.
+  const query = useAsync(
+    () => (habilitado ? repo.listar(rol, subrutaId) : Promise.resolve([] as SolicitudRegistro[])),
+    [repo, rol, subrutaId, habilitado],
+  )
   const { reload } = query
 
   const aprobar = useCallback(

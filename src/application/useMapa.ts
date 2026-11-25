@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type { Linea } from '../domain/models'
 import type { LineasRepository } from '../domain/ports'
 import { resolverSubrutasCuradas } from '../data/rutasCuradas'
@@ -15,7 +15,7 @@ function ordenarLineas(lineas: Linea[]): Linea[] {
   })
 }
 
-function extraerCodigoRuta(linea: Pick<Linea, 'nombre' | 'corredor'>): string | null {
+export function extraerCodigoRuta(linea: Pick<Linea, 'nombre' | 'corredor'>): string | null {
   const fromNombre = (linea.nombre ?? '').match(/\bC\d+\b/i)?.[0]
   if (fromNombre) return fromNombre.toUpperCase()
   const corredor = (linea.corredor ?? '').trim()
@@ -150,18 +150,16 @@ export function useMapa(repo: LineasRepository, fixedLineaId?: number | null) {
     return { lineas: unificarIdaVuelta(grupo, fixedLineaId), scoped: true }
   }, [lineasQuery.data, fixedLineaId])
 
-  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [elegida, setElegida] = useState<number | null>(null)
 
-  useEffect(() => {
-    if (lineas.length === 0) return
-    if (selectedId != null && lineas.some((linea) => linea.id === selectedId)) return
-    // En modo scoped prioriza la ruta asignada; si no está, la primera del grupo.
-    if (fixedLineaId != null && lineas.some((linea) => linea.id === fixedLineaId)) {
-      setSelectedId(fixedLineaId)
-      return
-    }
-    setSelectedId(lineas[0].id)
-  }, [lineas, selectedId, fixedLineaId])
+  // Selección derivada: siempre válida aunque cambie el catálogo o el rol.
+  // En modo scoped se prioriza la línea asignada a la cuenta.
+  const selectedId =
+    elegida != null && lineas.some((linea) => linea.id === elegida)
+      ? elegida
+      : fixedLineaId != null && lineas.some((linea) => linea.id === fixedLineaId)
+        ? fixedLineaId
+        : (lineas[0]?.id ?? null)
 
   const selected = useMemo(
     () => lineas.find((linea) => linea.id === selectedId) ?? null,
@@ -178,15 +176,17 @@ export function useMapa(repo: LineasRepository, fixedLineaId?: number | null) {
     [repo, selected?.id],
   )
 
+  const recargarLineas = lineasQuery.reload
+  const recargarPuntos = puntosQuery.reload
   const reload = useCallback(() => {
-    lineasQuery.reload()
-    puntosQuery.reload()
-  }, [lineasQuery.reload, puntosQuery.reload])
+    recargarLineas()
+    recargarPuntos()
+  }, [recargarLineas, recargarPuntos])
 
   return {
     lineas,
     selected,
-    selectLinea: setSelectedId,
+    selectLinea: setElegida,
     puntos: puntosQuery.data ?? [],
     loadingLineas: lineasQuery.loading,
     loadingPuntos: puntosQuery.loading,

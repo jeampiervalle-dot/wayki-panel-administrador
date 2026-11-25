@@ -19,4 +19,14 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // Este módulo expone los contexts y sus hooks junto a los providers.
+    files: ['src/app/providers.tsx'],
+    rules: {
+      'react-refresh/only-export-components': [
+        'error',
+        { allowExportNames: ['useSession', 'useDependencies'] },
+      ],
+    },
+  },
 ])

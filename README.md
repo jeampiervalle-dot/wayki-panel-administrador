@@ -3,15 +3,15 @@
 # Wayki Nest · Panel Administrador
 
 **Interfaz React del panel de administración de rutas, combis y cuentas.**
-Solo front · datos locales · sin backend.
+Conectada a la API REST de Django (VPS) y a la base de datos compartida `gowayki_db`.
 
 ![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 ![MUI](https://img.shields.io/badge/MUI-9-007FFF?style=for-the-badge&logo=mui&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white)
 
-![Sin backend](https://img.shields.io/badge/backend-ninguno-2E7D32?style=flat-square)
-![Datos locales](https://img.shields.io/badge/datos-localStorage-C77700?style=flat-square)
+![Backend Django](https://img.shields.io/badge/backend-Django%20REST-092E20?style=flat-square)
+![Datos reales](https://img.shields.io/badge/datos-gowayki_db-C77700?style=flat-square)
 ![Mapa](https://img.shields.io/badge/mapa-OpenStreetMap-7C6BC4?style=flat-square)
 
 <img src="docs/demo.gif" alt="Demostración del panel" width="820" />
@@ -24,9 +24,10 @@ Solo front · datos locales · sin backend.
 
 ## 📖 ¿Qué es esto?
 
-Panel web para administrar el sistema de transporte **Wayki Nest**. Reproduce el
-flujo real de aprobaciones con **datos locales**, así que puedes probar todo sin
-levantar un backend.
+Panel web para administrar el sistema de transporte **Wayki Nest**. El flujo de
+aprobaciones, cuentas, líneas y unidades se resuelve en el **backend Django** y
+se persiste en `gowayki_db`; el frontend solo consume su API REST. El mapa usa
+además el catálogo de rutas del backend Java (Spring), que lee la misma BD.
 
 - **Admin**: aprueba jefes de ruta y cambios de ruta, gestiona cuentas, rutas y unidades.
 - **Jefe de ruta**: aprueba a los choferes de su línea, gestiona sus combis y consulta el mapa.
@@ -61,12 +62,43 @@ npm run build    # build de producción
 npm run preview  # servir el build
 ```
 
+### Conexión con el backend
+
+La URL se define en `.env.local` (no versionada):
+
+```env
+VITE_API_URL=http://31.220.72.2:8000/api        # backend Django (negocio + BD)
+VITE_RUTAS_API_URL=http://31.220.72.2:8080/api  # backend Java (catálogo y mapa)
+```
+
+Si no hay `.env.local`, se usan `http://localhost:8000/api` y
+`http://localhost:8080/api` como valores por defecto.
+
+El cableado está en `src/app/dependencies.ts`: todos los repositorios son
+implementaciones HTTP (`src/data/http/repositories.ts`) que llaman a los
+endpoints del backend. La lógica de negocio (roles, bloqueo por intentos,
+aprobaciones, unicidad, estados) **no está duplicada en el frontend**: la
+aplica el backend y el frontend solo muestra el resultado y los errores.
+
+| Pantalla | Endpoint principal |
+| --- | --- |
+| Login / registro | `POST /auth/login`, `POST /auth/registro` |
+| Solicitudes | `GET /solicitudes-registro?rol=…&lineaId=…`, `PATCH /solicitudes-registro/{id}` |
+| Cuentas | `GET /usuarios`, `PATCH /usuarios/{id}`, `DELETE /usuarios/{id}` |
+| Rutas / líneas | `GET /lineas`, `POST/PATCH/DELETE /lineas/{id}`, `GET /lineas/{id}/puntos-control` |
+| Unidades | `GET /unidades`, `GET /lineas/{id}/unidades`, `POST/PATCH/DELETE /unidades` |
+| Mapa | `GET /rutas/catalogo`, `/rutas/{id}/geometria`, `/rutas/{id}/paraderos` (Java) |
+
 ### Credenciales de demostración
 
 | Rol | DNI | PIN |
 | --- | --- | --- |
 | Admin | `12345678` | `123456` |
 | Jefe de ruta | `87654321` | `123456` |
+
+Estas credenciales son de referencia: en la BD de producción los DNI pueden
+corresponder a otras cuentas (por ejemplo, `12345678` es un **JEFE_RUTA**), y el
+backend rechaza el ingreso de cualquier `CHOFER` al panel.
 
 Los choferes de ejemplo (`41111111`, `42222222`, `43333333`) existen para mostrar
 los datos de la app: **el panel rechaza su inicio de sesión**.
@@ -99,7 +131,8 @@ los datos de la app: **el panel rechaza su inicio de sesión**.
     <td><img src="docs/screenshots/12-jefe-mapa.jpg" alt="Mapa de mi ruta" /></td>
   </tr>
   <tr>
-    <td colspan="2"><img src="docs/screenshots/13-jefe-ajustes.png" alt="Ajustes y cambio de ruta" /></td>
+    <td><img src="docs/screenshots/13-admin-ajustes.png" alt="Ajustes del administrador" /></td>
+    <td><img src="docs/screenshots/13-jefe-ajustes.png" alt="Ajustes y cambio de ruta del jefe" /></td>
   </tr>
 </table>
 
@@ -111,10 +144,14 @@ src/
 ├── application/    hooks (casos de uso de la UI)
 ├── domain/         modelos y puertos (sin React ni red)
 ├── data/
-│   ├── mappers.ts      normalización de datos
+│   ├── http/           repositorios HTTP + cliente fetch (backend real)
+│   │   ├── client.ts           request() y normalización de errores
+│   │   ├── repositories.ts     login, cuentas, líneas, unidades, solicitudes
+│   │   └── backendRutasRepositories.ts  catálogo/paraderos (Java)
+│   ├── mappers.ts      normalización DTO -> modelo de dominio
 │   ├── sessionStore.ts sesión en localStorage
-│   ├── rutasCuradas.ts subrutas SIT/C2–C11
-│   └── mock/           semilla, persistencia y repositorios locales
+│   ├── rutasCuradas.ts subrutas SIT/C2–C11 (apoyo del mapa)
+│   └── mock/           datos de prueba (no se usan en producción)
 └── presentation/   páginas, layout y componentes MUI
 ```
 

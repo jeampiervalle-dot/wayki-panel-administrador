@@ -1,9 +1,17 @@
 // ============================================================
 // Aplicación: hook genérico de consulta asíncrona.
 // Evita duplicar loading/error/data en cada pantalla.
+// El estado vive en un store externo para no actualizar el estado
+// de React de forma síncrona desde dentro de un efecto.
 // ============================================================
 
-import { useCallback, useEffect, useRef, useState, type DependencyList } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type DependencyList,
+} from 'react'
 import { toErrorMessage } from '../domain/errors'
 
 export interface AsyncState<T> {
@@ -16,44 +24,69 @@ export interface AsyncQuery<T> extends AsyncState<T> {
   reload: () => void
 }
 
-export function useAsync<T>(loader: () => Promise<T>, deps: DependencyList = []): AsyncQuery<T> {
-  const loaderRef = useRef(loader)
-  loaderRef.current = loader
+interface QueryStore<T> {
+  suscribir: (listener: () => void) => () => void
+  snapshot: () => AsyncState<T>
+  actualizarLoader: (loader: () => Promise<T>) => void
+  ejecutar: (limpiar: boolean) => void
+}
 
-  const [state, setState] = useState<AsyncState<T>>({
-    data: null,
-    loading: true,
-    error: null,
-  })
-  const [version, setVersion] = useState(0)
+function crearStore<T>(loaderInicial: () => Promise<T>): QueryStore<T> {
+  let loader = loaderInicial
+  let estado: AsyncState<T> = { data: null, loading: true, error: null }
+  const oyentes = new Set<() => void>()
+  let id = 0
+
+  const notificar = () => {
+    for (const oyente of oyentes) oyente()
+  }
+
+  return {
+    suscribir(listener) {
+      oyentes.add(listener)
+      return () => {
+        oyentes.delete(listener)
+      }
+    },
+    snapshot: () => estado,
+    actualizarLoader(next) {
+      loader = next
+    },
+    ejecutar(limpiar) {
+      const actual = ++id
+      estado = { data: limpiar ? null : estado.data, loading: true, error: null }
+      notificar()
+      Promise.resolve()
+        .then(loader)
+        .then(
+          (data) => {
+            if (actual === id) {
+              estado = { data, loading: false, error: null }
+              notificar()
+            }
+          },
+          (error: unknown) => {
+            if (actual === id) {
+              estado = { data: null, loading: false, error: toErrorMessage(error) }
+              notificar()
+            }
+          },
+        )
+    },
+  }
+}
+
+export function useAsync<T>(loader: () => Promise<T>, deps: DependencyList = []): AsyncQuery<T> {
+  const [store] = useState(() => crearStore(loader))
 
   useEffect(() => {
-    let cancelled = false
-    setState((previous) => ({ ...previous, loading: true, error: null }))
-
-    loaderRef
-      .current()
-      .then((data) => {
-        if (!cancelled) setState({ data, loading: false, error: null })
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          setState((previous) => ({
-            ...previous,
-            loading: false,
-            error: toErrorMessage(error),
-          }))
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-    // deps + version controlan cuándo se vuelve a ejecutar el loader.
+    store.actualizarLoader(loader)
+    store.ejecutar(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, version])
+  }, [...deps, store])
 
-  const reload = useCallback(() => setVersion((current) => current + 1), [])
+  const estado = useSyncExternalStore(store.suscribir, store.snapshot)
+  const reload = useCallback(() => store.ejecutar(false), [store])
 
-  return { ...state, reload }
+  return { ...estado, reload }
 }

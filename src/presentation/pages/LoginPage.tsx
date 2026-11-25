@@ -1,64 +1,47 @@
 import { useMemo, useState } from 'react'
 import {
   Alert,
-  Avatar,
   Box,
   Button,
-  Card,
-  CardContent,
   CircularProgress,
   MenuItem,
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettingsRounded'
+import RouteIcon from '@mui/icons-material/AltRouteRounded'
+import GroupsIcon from '@mui/icons-material/GroupsRounded'
+import DirectionsBusIcon from '@mui/icons-material/DirectionsBusRounded'
 import { toErrorMessage } from '../../domain/errors'
 import type { Linea } from '../../domain/models'
 import { useDependencies, useSession } from '../../app/providers'
 import { useLineas } from '../../application/useLineas'
+import { etiquetaSubruta, useSubrutas } from '../../application/useSubrutas'
+import { RouteBadge } from '../components/RouteBadge'
 
 type Mode = 'login' | 'register'
 
-function extraerCodigoRuta(linea: Pick<Linea, 'nombre' | 'corredor'>): string | null {
-  const fromNombre = (linea.nombre ?? '').match(/\bC\d+\b/i)?.[0]
-  if (fromNombre) return fromNombre.toUpperCase()
-  const corredor = (linea.corredor ?? '').trim()
-  const fromCorredor = corredor.match(/\bC\d+\b/i)?.[0]
-  if (fromCorredor) return fromCorredor.toUpperCase()
-  if (/^C\d+$/i.test(corredor)) return corredor.toUpperCase()
-  return null
+function etiquetaLinea(linea: Linea): string {
+  const extremos = [linea.origen, linea.destino].filter(Boolean).join(' → ')
+  return extremos ? `${linea.nombre} · ${extremos}` : linea.nombre
 }
 
-function lineasEmpresa(todas: Linea[]): Linea[] {
-  const porCodigo = new Map<string, Linea[]>()
-  for (const l of todas) {
-    const code = extraerCodigoRuta(l)
-    if (!code) continue
-    if (!porCodigo.has(code)) porCodigo.set(code, [])
-    porCodigo.get(code)!.push(l)
-  }
-  const res: Linea[] = []
-  for (const [code, grupo] of porCodigo.entries()) {
-    const principal = grupo.find((l) => /^L[ií]nea\s*C\d+/i.test(l.nombre ?? '')) ?? grupo.sort((a, b) => a.id - b.id)[0]
-    res.push({
-      ...principal,
-      nombre: /^L[ií]nea\s*C\d+/i.test(principal.nombre ?? '') ? principal.nombre : `Corredor ${code}`,
-      corredor: code,
-    })
-  }
-  return res.sort((a, b) => {
-    const na = parseInt((extraerCodigoRuta(a) || 'C0').slice(1), 10)
-    const nb = parseInt((extraerCodigoRuta(b) || 'C0').slice(1), 10)
-    return na - nb
-  })
-}
+const RASGOS = [
+  { icono: <RouteIcon />, texto: 'Trazados y paraderos de la red real de Arequipa.' },
+  { icono: <GroupsIcon />, texto: 'Aprueba choferes y jefes de ruta en un solo lugar.' },
+  { icono: <DirectionsBusIcon />, texto: 'Controla la flota, su línea y su subruta.' },
+]
 
 export default function LoginPage() {
   const { iniciarSesion, registrar } = useSession()
   const { lineas: lineasRepo } = useDependencies()
-  const { lineas, loading: loadingLineas } = useLineas(lineasRepo)
-  const empresas = useMemo(() => lineasEmpresa(lineas), [lineas])
+  const { lineas, loading: loadingLineas, error: errorLineas } = useLineas(lineasRepo)
+  const opcionesLineas = useMemo(() => [...lineas].sort((a, b) => a.id - b.id), [lineas])
+  const { subrutasDe, loading: loadingSubrutas } = useSubrutas()
+  const tema = useTheme()
+  const compacto = useMediaQuery(tema.breakpoints.down('md'))
 
   const [mode, setMode] = useState<Mode>('login')
   const [dni, setDni] = useState('')
@@ -67,20 +50,32 @@ export default function LoginPage() {
   const [telefono, setTelefono] = useState('')
   const [email, setEmail] = useState('')
   const [lineaId, setLineaId] = useState('')
+  const [subrutaId, setSubrutaId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
 
-  const credencialesValidas =
-    mode === 'login'
-      ? dni.trim().length >= 4 && pin.trim().length >= 4
-      : dni.trim().length >= 8 && pin.trim().length >= 4
+  const credencialesValidas = dni.trim().length >= 4 && pin.trim().length >= 4
+  const lineaElegida = useMemo(
+    () => opcionesLineas.find((linea) => String(linea.id) === lineaId) ?? null,
+    [opcionesLineas, lineaId],
+  )
+  const subrutas = useMemo(() => subrutasDe(lineaElegida), [subrutasDe, lineaElegida])
+  const subrutaElegida = useMemo(
+    () => subrutas.find((ruta) => ruta.id === subrutaId) ?? null,
+    [subrutas, subrutaId],
+  )
+  const subrutaSinIdNumerico =
+    !!subrutaElegida && !/^\d+$/.test(String(subrutaElegida.subrutaDbId ?? ''))
+
   const registroValido =
     dni.trim().length >= 8 &&
     pin.trim().length >= 4 &&
     !!nombre.trim() &&
     telefono.trim().length >= 9 &&
-    !!lineaId
+    !!lineaId &&
+    !!subrutaElegida &&
+    !subrutaSinIdNumerico
 
   async function handleLogin() {
     setError(null)
@@ -100,6 +95,7 @@ export default function LoginPage() {
     setOk(null)
     setBusy(true)
     try {
+      const subruta = subrutas.find((ruta) => ruta.id === subrutaId)
       await registrar({
         nombre: nombre.trim(),
         dni: dni.trim(),
@@ -108,15 +104,23 @@ export default function LoginPage() {
         pin: pin.trim(),
         rol: 'JEFE_RUTA',
         ...(lineaId ? { lineaId: Number(lineaId) } : {}),
+        ...(lineaElegida ? { nombreLinea: lineaElegida.nombre } : {}),
+        ...(subruta
+          ? {
+              subrutaId: subruta.id,
+              subrutaDbId: subruta.subrutaDbId ? String(subruta.subrutaDbId) : undefined,
+              nombreSubruta: etiquetaSubruta(subruta),
+              codigoLinea: subruta.agency.id || undefined,
+            }
+          : {}),
       })
-      setOk(
-        'Cuenta creada. Seleccionaste tu ruta; podrás iniciar sesión cuando sea aprobada/activada según el flujo.',
-      )
+      setOk('Solicitud enviada. Podrás ingresar cuando el administrador apruebe tu cuenta.')
       setMode('login')
       setNombre('')
       setTelefono('')
       setEmail('')
       setLineaId('')
+      setSubrutaId('')
     } catch (cause) {
       setError(toErrorMessage(cause, 'No se pudo crear la cuenta'))
     } finally {
@@ -128,92 +132,203 @@ export default function LoginPage() {
     setMode((current) => (current === 'login' ? 'register' : 'login'))
     setError(null)
     setOk(null)
+    setLineaId('')
+    setSubrutaId('')
   }
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'grid',
-        placeItems: 'center',
-        p: 2,
-        background:
-          'radial-gradient(1200px 600px at 10% -10%, #E4DCF8 0%, transparent 60%), radial-gradient(900px 500px at 110% 10%, #DDD2F6 0%, transparent 55%), #F6F3FC',
-      }}
-    >
-      <Card sx={{ width: '100%', maxWidth: 500, p: 1 }}>
-        <CardContent>
-          <Stack spacing={2.2}>
-            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-              <Avatar sx={{ bgcolor: 'primary.main', width: 52, height: 52 }}>
-                <AdminPanelSettingsIcon />
-              </Avatar>
-              <Box>
-                <Typography variant="h5">Wayki Nest</Typography>
-                <Typography color="text.secondary">
-                  {mode === 'login' ? 'Acceso al panel de administración' : 'Crear cuenta (jefe de ruta)'}
-                </Typography>
-              </Box>
+    <Box sx={{ minHeight: '100vh', display: 'flex', bgcolor: 'background.default' }}>
+      {!compacto && (
+        <Box
+          sx={{
+            width: '46%',
+            maxWidth: 620,
+            flexShrink: 0,
+            bgcolor: 'primary.dark',
+            color: 'common.white',
+            p: 5,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box
+              component="img"
+              src="/wayki-logo.png"
+              alt="Wayki Nest"
+              sx={{ width: 44, height: 44, objectFit: 'contain', p: 0.5, bgcolor: 'common.white', borderRadius: 1, flexShrink: 0 }}
+            />
+            <Box>
+              <Typography sx={{ fontFamily: '"Unbounded", sans-serif', fontSize: 26, fontWeight: 700, lineHeight: 0.95 }}>
+                WAYKI NEST
+              </Typography>
+              <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                PANEL DE OPERACIONES
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ maxWidth: 440, position: 'relative', zIndex: 1 }}>
+            <Typography
+              sx={{
+                fontFamily: '"Unbounded", sans-serif',
+                fontSize: { md: 52, lg: 60 },
+                fontWeight: 700,
+                lineHeight: 0.92,
+                letterSpacing: '-0.01em',
+              }}
+            >
+              Tu ruta,
+              <br />
+              bajo control.
+            </Typography>
+            <Typography sx={{ mt: 2.5, fontSize: 15, opacity: 0.82, maxWidth: 380 }}>
+              Gestiona solicitudes, flota y trazados desde una sola pantalla.
+            </Typography>
+
+            <Stack spacing={1.75} sx={{ mt: 4 }}>
+              {RASGOS.map((rasgo) => (
+                <Stack key={rasgo.texto} direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+                  <Box sx={{ display: 'flex', color: 'secondary.main', fontSize: 20 }}>{rasgo.icono}</Box>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>{rasgo.texto}</Typography>
+                </Stack>
+              ))}
             </Stack>
+          </Box>
 
-            {mode === 'login' ? (
-              <Alert severity="info" sx={{ borderRadius: 3 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                  Datos locales (sin backend)
-                </Typography>
-                <Typography variant="body2">
-                  Admin: <code>12345678</code> / <code>1234</code>
-                  <br />
-                  Jefe de ruta: <code>87654321</code> / <code>1234</code>
-                  <br />
-                  Los choferes ingresan solo desde la app móvil.
-                </Typography>
-              </Alert>
-            ) : (
-              <Alert severity="info" sx={{ borderRadius: 3 }}>
-                El registro del panel es solo para <strong>jefes de ruta</strong>. Crea una solicitud
-                que el admin aprueba; los choferes se registran en la app móvil.
-              </Alert>
-            )}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, position: 'relative', zIndex: 1 }}>
+            {['C1', 'C2', 'C4', 'C5'].map((code, index) => (
+              <RouteBadge key={code} code={code} color={index === 2 ? 'secondary.main' : 'rgba(255,255,255,0.16)'} size="sm" />
+            ))}
+            <Typography variant="caption" sx={{ ml: 1, opacity: 0.6 }}>
+              Red integrada · Arequipa
+            </Typography>
+          </Box>
 
+          <Box
+            sx={{
+              position: 'absolute',
+              right: -120,
+              bottom: -80,
+              width: 360,
+              height: 360,
+              borderRadius: '50%',
+              border: '1px solid rgba(255,255,255,0.09)',
+              boxShadow: '0 0 0 46px rgba(255,255,255,0.025), 0 0 0 92px rgba(255,255,255,0.018)',
+            }}
+          />
+        </Box>
+      )}
+
+      <Box sx={{ flex: 1, display: 'grid', placeItems: 'center', px: { xs: 2, sm: 4 }, py: 4 }}>
+        <Box sx={{ width: '100%', maxWidth: 460 }}>
+          <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 1.25, mb: 4 }}>
+            <Box
+              component="img"
+              src="/wayki-logo.png"
+              alt="Wayki Nest"
+              sx={{ width: 40, height: 40, objectFit: 'contain', p: 0.5, bgcolor: 'common.white', borderRadius: 1, flexShrink: 0 }}
+            />
+            <Typography sx={{ fontFamily: '"Unbounded", sans-serif', fontSize: 24, fontWeight: 700 }}>
+              WAYKI NEST
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: 'flex', borderBottom: '1px solid', borderColor: 'divider', mb: 3 }}>
+            {([
+              ['login', 'Iniciar sesión'],
+              ['register', 'Crear cuenta'],
+            ] as const).map(([value, label]) => (
+              <Button
+                key={value}
+                onClick={() => (value === mode ? undefined : toggleMode())}
+                sx={{
+                  borderRadius: 0,
+                  px: 1.5,
+                  minHeight: 42,
+                  color: mode === value ? 'primary.main' : 'text.secondary',
+                  borderBottom: '2px solid',
+                  borderColor: mode === value ? 'primary.main' : 'transparent',
+                  '&:hover': { bgcolor: 'transparent' },
+                }}
+              >
+                {label}
+              </Button>
+            ))}
+          </Box>
+
+          <Typography variant="h4" component="h1" sx={{ mb: 0.5 }}>
+            {mode === 'login' ? 'Bienvenido de vuelta' : 'Solicitar acceso'}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            {mode === 'login'
+              ? 'Ingresa con tu DNI y el PIN de tu cuenta.'
+              : 'El registro del panel es solo para jefes de ruta.'}
+          </Typography>
+
+          <Stack spacing={2}>
             {mode === 'register' && (
               <>
-                <TextField
-                  label="Nombre completo"
-                  value={nombre}
-                  onChange={(event) => setNombre(event.target.value)}
-                  fullWidth
-                />
+                <Alert severity="info">
+                  Tu solicitud queda pendiente hasta que el administrador la apruebe. Los choferes se registran en la app móvil.
+                </Alert>
+                <TextField label="Nombre completo" value={nombre} onChange={(event) => setNombre(event.target.value)} fullWidth />
                 <TextField
                   label="Teléfono (9 dígitos)"
                   value={telefono}
                   onChange={(event) => setTelefono(event.target.value.replace(/\D/g, '').slice(0, 9))}
                   fullWidth
                 />
-                <TextField
-                  label="Email (opcional)"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  fullWidth
-                />
+                <TextField label="Email (opcional)" value={email} onChange={(event) => setEmail(event.target.value)} fullWidth />
                 <TextField
                   select
-                  label="Selecciona tu ruta (empresa / línea de transporte)"
+                  label="1. Línea (empresa de transporte)"
                   value={lineaId}
-                  onChange={(event) => setLineaId(event.target.value)}
+                  onChange={(event) => { setLineaId(event.target.value); setSubrutaId('') }}
                   fullWidth
                   helperText={
                     loadingLineas
-                      ? 'Cargando rutas...'
-                      : 'Como jefe de ruta, elige la línea o corredor en el que trabajarás.'
+                      ? 'Cargando líneas desde la base de datos…'
+                      : errorLineas
+                        ? `Error al cargar líneas: ${errorLineas}`
+                        : `Elige la línea en la que trabajarás (${opcionesLineas.length} disponibles).`
                   }
                 >
-                  {empresas.map((linea) => (
-                    <MenuItem key={linea.id} value={String(linea.id)}>
-                      {linea.nombre}
-                    </MenuItem>
+                  {opcionesLineas.map((linea) => (
+                    <MenuItem key={linea.id} value={String(linea.id)}>{etiquetaLinea(linea)}</MenuItem>
                   ))}
                 </TextField>
+                <TextField
+                  select
+                  label="2. Subruta (recorrido)"
+                  value={subrutaId}
+                  onChange={(event) => setSubrutaId(event.target.value)}
+                  fullWidth
+                  disabled={!lineaId || loadingSubrutas}
+                  helperText={
+                    !lineaId
+                      ? 'Primero selecciona una línea.'
+                      : loadingSubrutas
+                        ? 'Cargando subrutas del catálogo…'
+                        : subrutas.length === 0
+                          ? 'Esta línea no tiene subrutas en el catálogo.'
+                          : `Subrutas de tu línea (${subrutas.length}). Se requiere su ID numérico para asignarte la ruta.`
+                  }
+                >
+                  {subrutas.map((ruta) => (
+                    <MenuItem key={ruta.id} value={ruta.id}>{etiquetaSubruta(ruta)}</MenuItem>
+                  ))}
+                </TextField>
+                {subrutaSinIdNumerico && (
+                  <Alert severity="warning">
+                    Esta subruta del catálogo no tiene un ID numérico de base de datos. Elige otra
+                    subruta o pide al administrador que actualice el catálogo; de otro modo no se
+                    puede asignarte la ruta.
+                  </Alert>
+                )}
               </>
             )}
 
@@ -241,47 +356,25 @@ export default function LoginPage() {
               }}
             />
 
-            {error && (
-              <Alert severity="error" sx={{ borderRadius: 3 }}>
-                {error}
-              </Alert>
-            )}
-            {ok && (
-              <Alert severity="success" sx={{ borderRadius: 3 }}>
-                {ok}
-              </Alert>
-            )}
+            {error && <Alert severity="error">{error}</Alert>}
+            {ok && <Alert severity="success">{ok}</Alert>}
 
-            {mode === 'login' ? (
-              <Button
-                variant="contained"
-                size="large"
-                onClick={handleLogin}
-                disabled={busy || !credencialesValidas}
-              >
-                {busy ? <CircularProgress size={22} color="inherit" /> : 'Iniciar sesión'}
-              </Button>
-            ) : (
-              <Button
-                variant="contained"
-                size="large"
-                onClick={handleRegister}
-                disabled={busy || !registroValido}
-              >
-                {busy ? <CircularProgress size={22} color="inherit" /> : 'Crear cuenta'}
-              </Button>
-            )}
-
-            <Button variant="text" onClick={toggleMode}>
-              {mode === 'login' ? 'Crear cuenta' : 'Ya tengo cuenta, iniciar sesión'}
+            <Button
+              variant="contained"
+              size="large"
+              onClick={mode === 'login' ? handleLogin : handleRegister}
+              disabled={busy || (mode === 'login' ? !credencialesValidas : !registroValido)}
+              sx={{ mt: 0.5, minHeight: 46 }}
+            >
+              {busy ? <CircularProgress size={21} color="inherit" /> : mode === 'login' ? 'Iniciar sesión' : 'Enviar solicitud'}
             </Button>
-
-            <Typography variant="caption" color="text.secondary">
-              Acceso restringido. Los permisos dependen del rol asignado.
-            </Typography>
           </Stack>
-        </CardContent>
-      </Card>
+
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 3 }}>
+            Acceso restringido. Los permisos dependen del rol asignado en el sistema.
+          </Typography>
+        </Box>
+      </Box>
     </Box>
   )
 }
