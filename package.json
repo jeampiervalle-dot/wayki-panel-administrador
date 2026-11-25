@@ -2,7 +2,7 @@
   "name": "wayki-panel-administrador",
   "private": true,
   "version": "1.0.0",
-  "description": "Interfaz React del panel Wayki Nest: admin aprueba jefes de ruta y el jefe aprueba choferes. Solo front, con datos locales.",
+  "description": "Interfaz React del panel Wayki Nest conectada a la API REST de Django: admin aprueba jefes de ruta y el jefe aprueba choferes.",
   "keywords": [
     "react",
     "typescript",
