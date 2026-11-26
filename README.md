@@ -67,7 +67,7 @@ npm run preview  # servir el build
 La URL se define en `.env` (versionado, sin secretos):
 
 ```env
-VITE_API_URL=http://31.220.72.2:8000/api        # backend Django (negocio + BD)
+VITE_API_URL=https://waiky-nest.site/api # Backend Django
 VITE_RUTAS_API_URL=http://31.220.72.2:8080/api  # backend Java (catálogo y mapa)
 ```
 
